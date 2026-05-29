@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "start": "prisma db push && next start -p ${PORT:-3000}",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "phase1:check": "npm run db:generate && npm run build"
+    "phase1:check": "npm run db:generate && npm run build",
+    "db:deploy": "prisma db push",
+    "railway:build": "npm ci && npm run build"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
