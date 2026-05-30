@@ -1,37 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-family-sans: 'Vazirmatn', system-ui, sans-serif;
-  --radius: 0.75rem;
+  --radius: 1rem;
 
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(240 10% 4%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(240 10% 4%);
-  --color-input: hsl(240 6% 90%);
-  --color-accent: hsl(240 5% 96%);
-  --color-accent-foreground: hsl(240 6% 10%);
-  --color-primary: hsl(246 63% 58%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(240 5% 96%);
-  --color-secondary-foreground: hsl(240 6% 10%);
-  --color-muted: hsl(240 5% 96%);
-  --color-muted-foreground: hsl(240 4% 46%);
-  --color-destructive: hsl(0 84% 60%);
-  --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(240 6% 90%);
-  --color-ring: hsl(246 63% 58%);
+  --color-background: hsl(260 100% 99%);
+  --color-foreground: #17112A;
+  --color-card: #ffffff;
+  --color-card-foreground: #17112A;
+  --color-input: #e7e1f2;
+  --color-accent: #f2eeff;
+  --color-accent-foreground: #2A105A;
+  --color-primary: #5B2BE2;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f3f4ff;
+  --color-secondary-foreground: #24123F;
+  --color-muted: #f7f6ff;
+  --color-muted-foreground: #6D6780;
+  --color-destructive: #ff3b30;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e7e1f2;
+  --color-ring: #8E58FF;
 
-  --color-brand-50:  #EEEDFE;
-  --color-brand-100: #CECBF6;
-  --color-brand-200: #AFA9EC;
-  --color-brand-400: #7F77DD;
-  --color-brand-600: #534AB7;
-  --color-brand-800: #3C3489;
-  --color-brand-900: #26215C;
+  --color-brand-50:  #F3F4FF;
+  --color-brand-100: #EDE8FF;
+  --color-brand-200: #D7C8FF;
+  --color-brand-400: #8E58FF;
+  --color-brand-600: #5B2BE2;
+  --color-brand-800: #2A105A;
+  --color-brand-900: #17112A;
 
-  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-fade-in: fade-in 0.28s ease-out;
 }
 
 @keyframes fade-in {
@@ -41,19 +41,42 @@
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  min-width: 0;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  background: #F7F6FF;
 }
 
 body {
+  margin: 0;
   font-family: var(--font-family-sans);
   direction: rtl;
+  color: #17112A;
   -webkit-tap-highlight-color: transparent;
+  text-rendering: geometricPrecision;
 }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #f1f1f1; }
-::-webkit-scrollbar-thumb { background: #ccc; border-radius: 9999px; }
+button,
+a,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cec7df; border-radius: 9999px; }
 
 .safe-top    { padding-top: env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }

@@ -1,11 +1,11 @@
 {
-  "name": "InstaFlow",
-  "short_name": "InstaFlow",
-  "description": "مدیریت هوشمند اینستاگرام",
+  "name": "Shanigram",
+  "short_name": "Shanigram",
+  "description": "مدیریت هوشمند دایرکت و مشتریان اینستاگرام",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#7F77DD",
+  "background_color": "#F7F6FF",
+  "theme_color": "#5B2BE2",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable any" },
