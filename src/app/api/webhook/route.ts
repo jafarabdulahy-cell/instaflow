@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, unknown>;
     await processWebhookEvent(body);
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
   } catch (error) {
@@ -28,12 +29,17 @@ export async function POST(req: NextRequest) {
 }
 
 async function processWebhookEvent(body: Record<string, unknown>) {
-  const entries = Array.isArray(body.entry) ? (body.entry as Record<string, unknown>[]) : [];
+  const entries = Array.isArray(body.entry)
+    ? (body.entry as Record<string, unknown>[])
+    : [];
 
   for (const entry of entries) {
     const pageId = String(entry.id || "");
+
     const account = await prisma.instagramAccount.findFirst({
-      where: { OR: [{ facebookPageId: pageId }, { instagramId: pageId }] },
+      where: {
+        OR: [{ facebookPageId: pageId }, { instagramId: pageId }],
+      },
     });
 
     await prisma.webhookEvent.create({
@@ -41,12 +47,15 @@ async function processWebhookEvent(body: Record<string, unknown>) {
         workspaceId: account?.workspaceId,
         instagramAccountId: account?.id,
         eventType: detectEventType(entry),
-        payload: entry,
+        payload: toInputJson(entry),
         processed: false,
       },
     });
 
-    const messaging = Array.isArray(entry.messaging) ? (entry.messaging as Record<string, unknown>[]) : [];
+    const messaging = Array.isArray(entry.messaging)
+      ? (entry.messaging as Record<string, unknown>[])
+      : [];
+
     for (const event of messaging) {
       await handleNewDM(account, event);
     }
@@ -59,6 +68,10 @@ function detectEventType(entry: Record<string, unknown>) {
   return "unknown";
 }
 
+function toInputJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
 async function handleNewDM(
   account: Awaited<ReturnType<typeof prisma.instagramAccount.findFirst>>,
   event: Record<string, unknown>
@@ -66,9 +79,13 @@ async function handleNewDM(
   if (!account) return;
 
   const sender = event.sender as { id?: string } | undefined;
-  const message = event.message as { text?: string; mid?: string; attachments?: unknown[] } | undefined;
+  const message = event.message as
+    | { text?: string; mid?: string; attachments?: unknown[] }
+    | undefined;
+
   const instagramUserId = sender?.id;
   const text = message?.text || "پیام جدید";
+
   if (!instagramUserId) return;
 
   const contact = await prisma.contact.upsert({
@@ -86,7 +103,9 @@ async function handleNewDM(
       name: instagramUserId,
       lastContactAt: new Date(),
     },
-    update: { lastContactAt: new Date() },
+    update: {
+      lastContactAt: new Date(),
+    },
   });
 
   const conversation = await prisma.conversation.upsert({
@@ -120,7 +139,7 @@ async function handleNewDM(
       direction: "inbound",
       senderId: instagramUserId,
       text,
-      rawPayload: event,
+      rawPayload: toInputJson(event),
     },
   });
 }
