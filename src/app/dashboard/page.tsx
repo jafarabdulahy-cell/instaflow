@@ -1,29 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
-import NextLink from "next/link";
+import Link from "next/link";
 import {
-  ArrowUpRight,
   Bell,
-  Bot,
-  Camera,
-  ChevronLeft,
-  Clock3,
   Home,
   Link2,
   LogOut,
   MessageCircle,
-  MessagesSquare,
-  Plus,
   Settings,
   Sparkles,
-  Target,
   UserPlus,
   UsersRound,
   Zap,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { ShanigramMark } from "@/components/brand-shanigram";
 
 type DashboardData = {
@@ -44,20 +34,19 @@ type DashboardData = {
   }>;
 };
 
-type StatCard = {
+type MiniCard = {
   label: string;
   hint: string;
   value: string | number;
   icon: ComponentType<{ className?: string }>;
-  cardClass: string;
-  iconClass: string;
+  tone: string;
 };
 
 function formatNumber(value?: number) {
   return (value ?? 0).toLocaleString("fa-IR");
 }
 
-function webhookText(status?: string) {
+function webhookLabel(status?: string) {
   return status === "connected" ? "متصل" : "در انتظار";
 }
 
@@ -80,52 +69,42 @@ export default function DashboardPage() {
 
   const stats = data?.stats;
   const isConnected = stats?.webhookStatus === "connected";
-  const leadScore = useMemo(() => {
+  const score = useMemo(() => {
+    const unread = stats?.unread ?? 0;
     const conversations = stats?.conversations ?? 0;
     const accounts = stats?.accounts ?? 0;
-    if (!accounts && !conversations) return 0;
-    return Math.min(100, Math.round(conversations * 12 + accounts * 18 + (isConnected ? 22 : 0)));
+    return Math.min(100, accounts * 25 + conversations * 9 + unread * 5 + (isConnected ? 20 : 0));
   }, [stats, isConnected]);
 
-  const statCards: StatCard[] = [
+  const cards: MiniCard[] = [
     {
-      label: "لیدهای فعال",
-      hint: "از گفتگوهای ثبت‌شده",
+      label: "لید فعال",
+      hint: "گفتگوهای مشتری",
       value: formatNumber(stats?.conversations),
       icon: UsersRound,
-      cardClass: "from-[#24123F] to-[#5B2BE2] text-white",
-      iconClass: "bg-white/15 text-white ring-white/20",
+      tone: "from-[#2A105A] to-[#5B2BE2]",
     },
     {
-      label: "پیام‌های جدید",
-      hint: "نیازمند پاسخ سریع",
+      label: "پیام جدید",
+      hint: "نیازمند پاسخ",
       value: formatNumber(stats?.unread),
       icon: MessageCircle,
-      cardClass: "from-[#0EA5E9] to-[#5B2BE2] text-white",
-      iconClass: "bg-white/15 text-white ring-white/20",
+      tone: "from-[#0EA5E9] to-[#5B2BE2]",
     },
     {
-      label: "پیج‌های متصل",
-      hint: "اکانت‌های Business / Creator",
+      label: "پیج متصل",
+      hint: "Business / Creator",
       value: formatNumber(stats?.accounts),
-      icon: Camera,
-      cardClass: "from-[#FF2D55] via-[#C13584] to-[#F59E0B] text-white",
-      iconClass: "bg-white/15 text-white ring-white/20",
+      icon: UserPlus,
+      tone: "from-[#FF2D55] to-[#8E58FF]",
     },
     {
-      label: "اتصال Webhook",
-      hint: "وضعیت دریافت خودکار پیام",
-      value: webhookText(stats?.webhookStatus),
+      label: "Webhook",
+      hint: "دریافت خودکار",
+      value: webhookLabel(stats?.webhookStatus),
       icon: Zap,
-      cardClass: isConnected ? "from-[#10B981] to-[#2DD4BF] text-white" : "from-[#F59E0B] to-[#FF2D55] text-white",
-      iconClass: "bg-white/15 text-white ring-white/20",
+      tone: isConnected ? "from-[#10B981] to-[#14B8A6]" : "from-[#F59E0B] to-[#FF2D55]",
     },
-  ];
-
-  const pipelineCards = [
-    { label: "لید جدید", count: stats?.unread ?? 0, icon: UserPlus, tone: "bg-[#FFF1F4] text-[#FF2D55]" },
-    { label: "در حال گفتگو", count: stats?.conversations ?? 0, icon: MessagesSquare, tone: "bg-[#F2EEFF] text-[#5B2BE2]" },
-    { label: "پیگیری امروز", count: Math.max(0, Math.min(3, stats?.conversations ?? 0)), icon: Clock3, tone: "bg-[#ECFEFF] text-[#0891B2]" },
   ];
 
   function logout() {
@@ -135,206 +114,123 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#F4F1FF] text-[#17112A]">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,#e9ddff_0,#f8f6ff_34%,#ffffff_72%)]" />
+    <div className="h-[100dvh] overflow-hidden bg-[#F4F0FF] text-[#17112A]">
+      <main className="mx-auto flex h-full w-full max-w-[430px] flex-col gap-3 px-4 pb-3 pt-3">
+        <header className="flex h-[58px] shrink-0 items-center justify-between rounded-[26px] bg-white/92 px-3 shadow-[0_12px_35px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] backdrop-blur-xl">
+          <button
+            onClick={logout}
+            className="grid h-11 w-11 place-items-center rounded-2xl bg-[#FFF1F2] text-[#FF3B30] ring-1 ring-[#FFE0E6] active:scale-95"
+            aria-label="خروج"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1 px-3 text-right">
+            <p className="truncate text-[15px] font-black">سلام {userName} 👋</p>
+            <p className="truncate text-[11px] font-bold text-[#7C748E]">داشبورد سریع مدیریت لیدها</p>
+          </div>
+          <div className="relative grid h-11 w-11 place-items-center rounded-2xl bg-[#F2EEFF] text-xl ring-1 ring-[#E6DCF8]">
+            👨🏻‍💼
+            {(stats?.unread ?? 0) > 0 && (
+              <span className="absolute -left-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#FF2D55] px-1 text-[10px] font-black text-white">
+                {formatNumber(stats?.unread)}
+              </span>
+            )}
+          </div>
+        </header>
 
-      <main className="mx-auto grid min-h-screen w-full max-w-6xl gap-5 px-4 pb-[104px] pt-4 lg:grid-cols-[1fr_390px] lg:items-start lg:px-6 lg:pb-8">
-        <section className="order-2 space-y-5 lg:order-1">
-          <header className="rounded-[32px] bg-white/82 p-4 shadow-[0_20px_60px_rgba(42,16,90,0.08)] ring-1 ring-[#E9E2FA] backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                onClick={logout}
-                className="grid h-12 w-12 place-items-center rounded-2xl bg-[#FFF1F2] text-[#FF3B30] ring-1 ring-[#FFE1E6] active:scale-[0.98]"
-                aria-label="خروج"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
-
-              <div className="flex min-w-0 flex-1 items-center justify-end gap-3 text-right">
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-black text-[#1F1831]">سلام {userName} 👋</p>
-                  <p className="truncate text-[12px] font-bold text-[#7C748E]">امروز لیدها را سریع‌تر تبدیل کن</p>
-                </div>
-                <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#F2EEFF] to-white text-xl shadow-inner ring-1 ring-[#E6DCF8]">
-                  👨🏻‍💼
-                  <span className="absolute -left-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#FF2D55] px-1 text-[11px] font-black text-white">
-                    {formatNumber(stats?.unread)}
-                  </span>
-                </div>
+        <section className="relative h-[154px] shrink-0 overflow-hidden rounded-[34px] bg-gradient-to-br from-[#5B2BE2] via-[#7A35F0] to-[#A56BFF] p-4 text-white shadow-[0_20px_55px_rgba(91,43,226,0.26)]">
+          <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-white/12 blur-2xl" />
+          <div className="relative flex h-full flex-col justify-between">
+            <div className="flex items-start justify-between gap-3">
+              <div className="grid h-16 w-16 place-items-center rounded-[26px] bg-white/14 ring-1 ring-white/20">
+                <ShanigramMark className="h-14 w-14 brightness-0 invert" />
+              </div>
+              <div className="min-w-0 text-right">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/14 px-3 py-1 text-[11px] font-black text-white/90">
+                  <Sparkles className="h-3.5 w-3.5" /> Instaflow CRM
+                </span>
+                <h1 className="mt-2 text-[30px] font-black leading-none tracking-tight">Shanigram</h1>
+                <p className="mt-2 text-[12px] font-bold text-white/78">لیدها، دایرکت و پیگیری مشتریان در یک صفحه</p>
               </div>
             </div>
-          </header>
-
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {statCards.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <Card key={stat.label} className={`overflow-hidden rounded-[30px] border-0 bg-gradient-to-br ${stat.cardClass} shadow-[0_20px_50px_rgba(42,16,90,0.14)]`}>
-                  <CardContent className="relative min-h-[148px] p-4">
-                    <div className="absolute -left-8 -top-8 h-24 w-24 rounded-full bg-white/12 blur-2xl" />
-                    <div className="relative flex items-start justify-between gap-3">
-                      <div className={`grid h-12 w-12 place-items-center rounded-2xl ring-1 ${stat.iconClass}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[12px] font-black opacity-90">{stat.label}</p>
-                        <p className="mt-3 text-[30px] font-black leading-none tracking-tight">{stat.value}</p>
-                        <p className="mt-3 text-[11px] font-bold opacity-78">{stat.hint}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <Card className="overflow-hidden rounded-[32px] border-0 bg-white shadow-[0_20px_55px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6]">
-              <CardContent className="p-5">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <Badge className="bg-[#F2EEFF] px-3 py-1.5 text-[#5B2BE2]">CRM زنده</Badge>
-                  <div className="text-right">
-                    <h2 className="text-[20px] font-black">مسیر تبدیل مشتری</h2>
-                    <p className="mt-1 text-[12px] font-bold text-[#7C748E]">از دایرکت تا پیگیری و فروش</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {pipelineCards.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={item.label} className="rounded-[26px] bg-[#FAF9FF] p-4 ring-1 ring-[#EEE8FA]">
-                        <div className={`mb-5 grid h-11 w-11 place-items-center rounded-2xl ${item.tone}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <p className="text-[12px] font-black text-[#6D6780]">{item.label}</p>
-                        <p className="mt-2 text-[28px] font-black text-[#17112A]">{formatNumber(item.count)}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-4 overflow-hidden rounded-[26px] bg-gradient-to-br from-[#17112A] to-[#37215F] p-4 text-white">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="grid h-16 w-16 place-items-center rounded-3xl bg-white/12 text-[22px] font-black ring-1 ring-white/14">
-                      {formatNumber(leadScore)}٪
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[15px] font-black">امتیاز آماده‌سازی فروش</p>
-                      <p className="mt-2 text-[12px] font-medium leading-6 text-white/72">
-                        با اتصال Webhook و پاسخ سریع به پیام‌ها، امتیاز تبدیل مشتری بالاتر می‌رود.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden rounded-[32px] border-0 bg-white shadow-[0_20px_55px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6]">
-              <CardContent className="p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <NextLink href="/connect" className="inline-flex items-center gap-1 rounded-full bg-[#F2EEFF] px-3 py-1.5 text-[12px] font-black text-[#5B2BE2]">
-                    افزودن <ChevronLeft className="h-4 w-4" />
-                  </NextLink>
-                  <h2 className="text-[18px] font-black">پیج‌های متصل</h2>
-                </div>
-
-                {!data?.accounts.length ? (
-                  <div className="rounded-[28px] border border-dashed border-[#D8CEEE] bg-[#FAF9FF] p-5 text-center">
-                    <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-white text-[#5B2BE2] shadow-sm">
-                      <Link2 className="h-7 w-7" />
-                    </div>
-                    <p className="mt-4 text-[15px] font-black">هنوز پیجی متصل نیست</p>
-                    <p className="mx-auto mt-2 max-w-[260px] text-[12px] font-medium leading-6 text-[#7C748E]">
-                      برای شروع دریافت لیدها، یک پیج Business یا Creator را متصل کن.
-                    </p>
-                    <NextLink href="/connect" className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-[#5B2BE2] px-5 text-[13px] font-black text-white shadow-lg shadow-violet-200">
-                      اتصال پیج
-                    </NextLink>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {data.accounts.map((account) => (
-                      <div key={account.id} className="flex items-center justify-between gap-3 rounded-[24px] bg-[#FAF9FF] p-3 ring-1 ring-[#EEE8FA]">
-                        <Badge className={account.webhookStatus === "connected" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}>
-                          {webhookText(account.webhookStatus)}
-                        </Badge>
-                        <div className="flex min-w-0 items-center gap-3 text-right">
-                          <div className="min-w-0">
-                            <p className="truncate text-[14px] font-black">{account.name || account.username}</p>
-                            <p className="truncate text-[11px] font-bold text-[#7C748E]" dir="ltr">@{account.username}</p>
-                          </div>
-                          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#FF2D55] to-[#5B2BE2] text-white">
-                            <Camera className="h-5 w-5" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </section>
+            <Link href="/dashboard/inbox" className="flex h-12 items-center justify-between rounded-[22px] bg-white px-3 text-[#5B2BE2] shadow-[0_16px_36px_rgba(42,16,90,0.16)]">
+              <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[#F2EEFF]">
+                <MessageCircle className="h-5 w-5" />
+              </span>
+              <span className="text-[14px] font-black">رفتن به اینباکس مشتریان</span>
+            </Link>
+          </div>
         </section>
 
-        <aside className="order-1 lg:sticky lg:top-4 lg:order-2">
-          <div className="overflow-hidden rounded-[36px] bg-gradient-to-br from-[#5B2BE2] via-[#7436F0] to-[#9A63FF] p-5 text-white shadow-[0_28px_80px_rgba(91,43,226,0.3)]">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div className="grid h-20 w-20 place-items-center rounded-[28px] bg-white/13 ring-1 ring-white/20">
-                <ShanigramMark className="h-[72px] w-[72px] brightness-0 invert" />
+        <section className="grid h-[62px] shrink-0 grid-cols-3 gap-2">
+          <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#5B2BE2] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
+            <Home className="h-5 w-5" />
+            <span className="mt-1 text-[11px] font-black">داشبورد</span>
+          </Link>
+          <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
+            <MessageCircle className="h-5 w-5" />
+            <span className="mt-1 text-[11px] font-black">اینباکس</span>
+          </Link>
+          <Link href="/connect" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
+            <Settings className="h-5 w-5" />
+            <span className="mt-1 text-[11px] font-black">اتصال</span>
+          </Link>
+        </section>
+
+        <section className="grid h-[186px] shrink-0 grid-cols-2 gap-2">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className={`relative overflow-hidden rounded-[26px] bg-gradient-to-br ${card.tone} p-3 text-white shadow-[0_13px_32px_rgba(42,16,90,0.12)]`}>
+                <div className="absolute -left-8 -top-8 h-20 w-20 rounded-full bg-white/13 blur-xl" />
+                <div className="relative flex h-full flex-col justify-between">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/16 ring-1 ring-white/18">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <p className="text-right text-[12px] font-black text-white/86">{card.label}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[27px] font-black leading-none">{card.value}</p>
+                    <p className="mt-1 text-[10px] font-bold text-white/64">{card.hint}</p>
+                  </div>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="inline-flex items-center gap-1 rounded-full bg-white/14 px-3 py-1 text-[11px] font-black text-white/85 ring-1 ring-white/12">
-                  <Sparkles className="h-3.5 w-3.5" /> Instaflow CRM
-                </p>
-                <h1 className="mt-4 text-[34px] font-black leading-none tracking-tight">Shanigram</h1>
-                <p className="mt-3 text-[12px] font-medium leading-6 text-white/78">
-                  داشبورد موبایل‌محور برای مدیریت دایرکت، لید و پیگیری مشتریان اینستاگرام.
-                </p>
-              </div>
+            );
+          })}
+        </section>
+
+        <section className="min-h-0 flex-1 overflow-hidden rounded-[28px] bg-white p-3 shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
+          <div className="flex h-full items-center justify-between gap-4">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[24px] bg-[#F2EEFF] text-[#5B2BE2]">
+              <Bell className="h-7 w-7" />
             </div>
-
-            <NextLink
-              href="/dashboard/inbox"
-              className="flex h-[62px] items-center justify-between rounded-[22px] bg-white px-4 text-[#5B2BE2] shadow-[0_18px_35px_rgba(34,16,74,0.18)] active:scale-[0.99]"
-            >
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F2EEFF]">
-                <ArrowUpRight className="h-5 w-5" />
-              </span>
-              <span className="text-[16px] font-black">رفتن به اینباکس مشتریان</span>
-            </NextLink>
+            <div className="min-w-0 flex-1 text-right">
+              <p className="text-[14px] font-black">وضعیت امروز</p>
+              <p className="mt-1 text-[12px] font-bold leading-6 text-[#7C748E]">
+                {score > 45 ? "سیستم آماده پیگیری لیدهاست." : "برای شروع، پیج اینستاگرام را وصل کن."}
+              </p>
+            </div>
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[24px] bg-gradient-to-br from-[#17112A] to-[#5B2BE2] text-[22px] font-black text-white">
+              {formatNumber(score)}٪
+            </div>
           </div>
+        </section>
 
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <NextLink href="/dashboard" className="flex h-[78px] flex-col items-center justify-center gap-2 rounded-[24px] bg-white text-[#5B2BE2] shadow-[0_12px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6]">
-              <Home className="h-5 w-5" />
-              <span className="text-[12px] font-black">داشبورد</span>
-            </NextLink>
-            <NextLink href="/dashboard/inbox" className="flex h-[78px] flex-col items-center justify-center gap-2 rounded-[24px] bg-white text-[#17112A] shadow-[0_12px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6]">
-              <MessageCircle className="h-5 w-5" />
-              <span className="text-[12px] font-black">اینباکس</span>
-            </NextLink>
-            <NextLink href="/connect" className="flex h-[78px] flex-col items-center justify-center gap-2 rounded-[24px] bg-white text-[#17112A] shadow-[0_12px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6]">
-              <Settings className="h-5 w-5" />
-              <span className="text-[12px] font-black">اتصال</span>
-            </NextLink>
-          </div>
-        </aside>
-
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ECE8F6] bg-white/92 px-4 py-2 shadow-[0_-18px_45px_rgba(42,16,90,0.1)] backdrop-blur-xl lg:hidden">
-          <div className="mx-auto grid max-w-[430px] grid-cols-3 gap-2 safe-bottom">
-            <NextLink href="/dashboard" className="flex flex-col items-center justify-center rounded-2xl bg-[#F2EEFF] py-2 text-[#5B2BE2]">
+        <nav className="h-[66px] shrink-0 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] safe-bottom">
+          <div className="grid h-full grid-cols-3 gap-2">
+            <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]">
               <Home className="h-5 w-5" />
               <span className="mt-1 text-[11px] font-black">داشبورد</span>
-            </NextLink>
-            <NextLink href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-2xl py-2 text-[#6D6780]">
+            </Link>
+            <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]">
               <MessageCircle className="h-5 w-5" />
               <span className="mt-1 text-[11px] font-black">اینباکس</span>
-            </NextLink>
-            <NextLink href="/connect" className="flex flex-col items-center justify-center rounded-2xl py-2 text-[#6D6780]">
-              <Bot className="h-5 w-5" />
+            </Link>
+            <Link href="/connect" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]">
+              <Link2 className="h-5 w-5" />
               <span className="mt-1 text-[11px] font-black">اتصال</span>
-            </NextLink>
+            </Link>
           </div>
         </nav>
       </main>
