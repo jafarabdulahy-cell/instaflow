@@ -50,6 +50,23 @@ export async function findActiveInstagramAccount(workspaceId: string) {
 
 export async function resolveInstagramConnection(workspaceId: string): Promise<InstagramConnection | null> {
   const account = await findActiveInstagramAccount(workspaceId);
+  const serverConfig = getServerInstagramConfig();
+
+  // v9: اگر Railway/Server ENV تنظیم شده باشد، همیشه اولویت با آن است.
+  // دلیل: توکن باید مخفی بماند و کاربر نباید هر بار آن را در UI وارد کند.
+  // این کار همچنین مشکل نمایش Instagram ID قدیمی از دیتابیس را حل می‌کند.
+  if (serverConfig) {
+    return {
+      source: "server_env",
+      instagramId: serverConfig.instagramId,
+      accessToken: serverConfig.accessToken,
+      username: serverConfig.username,
+      name: serverConfig.name,
+      tokenPreview: serverConfig.tokenPreview,
+      account: account || null,
+    };
+  }
+
   if (account?.instagramId && account?.accessToken && account.accessToken !== "server_env") {
     return {
       source: "database",
@@ -62,18 +79,7 @@ export async function resolveInstagramConnection(workspaceId: string): Promise<I
     };
   }
 
-  const serverConfig = getServerInstagramConfig();
-  if (!serverConfig) return null;
-
-  return {
-    source: "server_env",
-    instagramId: serverConfig.instagramId,
-    accessToken: serverConfig.accessToken,
-    username: serverConfig.username,
-    name: serverConfig.name,
-    tokenPreview: serverConfig.tokenPreview,
-    account: account || null,
-  };
+  return null;
 }
 
 export async function ensureInstagramAccountFromConnection(workspaceId: string, connection: InstagramConnection) {

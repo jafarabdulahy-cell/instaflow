@@ -28,6 +28,10 @@ type ApiTest = {
   count?: number;
   hasNext?: boolean;
   message?: string;
+  hint?: string;
+  sample?: unknown;
+  raw?: unknown;
+  error?: unknown;
 };
 
 type Diagnostics = {
@@ -64,6 +68,17 @@ function statusClass(ok?: boolean) {
 
 function formatNumber(value?: number) {
   return (value ?? 0).toLocaleString("fa-IR");
+}
+
+function safeJson(value: unknown) {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+      .replace(/(access_token=)[^&\s"]+/g, "$1••••")
+      .replace(/(access_token%3D)[^%&\s"]+/gi, "$1••••")
+      .replace(/(IGA[A-Za-z0-9_\-]{16,})/g, "IGA••••");
+  } catch {
+    return String(value || "");
+  }
 }
 
 export default function ConnectPage() {
@@ -312,7 +327,14 @@ export default function ConnectPage() {
                     <p className="text-right text-[12px] font-black">{test.title}</p>
                   </div>
                   <p className="mt-1 text-right text-[11px] font-bold leading-5 text-[#6D6780]">{test.message || "—"}</p>
+                  {test.hint && <p className="mt-1 rounded-2xl bg-blue-50 px-2 py-1 text-right text-[10px] font-bold leading-5 text-blue-800 ring-1 ring-blue-100">{test.hint}</p>}
+                  {typeof test.status === "number" && <p className="mt-1 text-right text-[10px] font-black text-[#8A8498]">HTTP: {test.status}</p>}
                   {typeof test.count === "number" && <p className="mt-1 text-right text-[10px] font-black text-[#8A8498]">تعداد: {formatNumber(test.count)} {test.hasNext ? " / صفحه بعدی دارد" : ""}</p>}
+                  <details className="mt-2 rounded-2xl bg-white p-2 ring-1 ring-[#ECE8F6]">
+                    <summary className="cursor-pointer text-right text-[10px] font-black text-[#5B2BE2]">نمایش Debug خام</summary>
+                    <p className="mt-2 break-all text-left text-[10px] font-bold text-[#8A8498]" dir="ltr">{test.endpoint}</p>
+                    <pre dir="ltr" className="mt-2 max-h-52 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-[#17112A] p-2 text-left text-[10px] leading-5 text-white">{safeJson(test.raw || test.error || test.sample || {})}</pre>
+                  </details>
                 </div>
               ))}
             </div>

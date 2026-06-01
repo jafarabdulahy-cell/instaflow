@@ -10,8 +10,10 @@ export type InstagramApiTest = {
   count?: number;
   hasNext?: boolean;
   message?: string;
+  hint?: string;
   error?: unknown;
   sample?: unknown;
+  raw?: unknown;
 };
 
 export type InstagramAccountInput = {
@@ -46,6 +48,26 @@ export function maskToken(token?: string | null) {
   if (!value) return "";
   if (value.length <= 12) return "••••";
   return `${value.slice(0, 6)}…${value.slice(-6)}`;
+}
+
+export function sanitizeInstagramPayload(value: unknown, accessToken?: string): unknown {
+  const token = clean(accessToken);
+  if (typeof value === "string") {
+    let result = value;
+    if (token) result = result.split(token).join(maskToken(token));
+    result = result.replace(/(access_token=)[^&\s"]+/g, "$1••••");
+    result = result.replace(/(access_token%3D)[^%&\s"]+/gi, "$1••••");
+    return result;
+  }
+  if (Array.isArray(value)) return value.map((item) => sanitizeInstagramPayload(item, token));
+  if (value && typeof value === "object") {
+    const output: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      output[key] = sanitizeInstagramPayload(item, token);
+    }
+    return output;
+  }
+  return value;
 }
 
 function ensurePath(path: string) {
@@ -99,10 +121,10 @@ function hasNext(data: unknown) {
   return typeof paging.next === "string" && paging.next.length > 0;
 }
 
-function sample(data: unknown) {
+function sample(data: unknown, accessToken?: string) {
   const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-  if (Array.isArray(record.data)) return record.data.slice(0, 2);
-  return record;
+  const value = Array.isArray(record.data) ? record.data.slice(0, 2) : record;
+  return sanitizeInstagramPayload(value, accessToken);
 }
 
 function errorMessage(data: unknown) {
@@ -176,30 +198,48 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
       ok: profileRes.ok,
       status: profileRes.status,
       message: profileRes.ok ? "اکانت اینستاگرام با موفقیت شناسایی شد." : errorMessage(profileRes.data),
-      sample: profileRes.ok ? profileRes.data : undefined,
-      error: profileRes.ok ? undefined : profileRes.data,
+      sample: profileRes.ok ? sanitizeInstagramPayload(profileRes.data, accessToken) : undefined,
+      raw: sanitizeInstagramPayload(profileRes.data, accessToken),
+      error: profileRes.ok ? undefined : sanitizeInstagramPayload(profileRes.data, accessToken),
     });
   } catch (error) {
     tests.push({ key: "profile", title: "تست شناسایی اکانت", endpoint: profileEndpoint, ok: false, message: clean((error as Error).message), error });
   }
 
   const conversationEndpoints = [
-    `${instagramId}/conversations?fields=id,participants,updated_time`,
-    `${instagramId}/conversations?limit=25`,
+    {
+      key: "conversations_fields",
+      title: "خواندن گفتگوها با فیلدهای کامل",
+      endpoint: `${instagramId}/conversations?fields=id,participants,updated_time&limit=25`,
+      required: true,
+    },
+    {
+      key: "conversations_nested_messages",
+      title: "خواندن گفتگوها همراه ۵ پیام اول",
+      endpoint: `${instagramId}/conversations?fields=id,participants,updated_time,messages.limit(5){id,message,from,to,created_time}&limit=10`,
+      required: false,
+      hint: "اگر این تست خطا داد اما تست ساده موفق بود، مشکل اتصال نیست؛ فقط Meta این فیلد تو در تو را در این حالت برنمی‌گرداند.",
+    },
+    {
+      key: "conversations_basic",
+      title: "خواندن گفتگوها ساده",
+      endpoint: `${instagramId}/conversations?limit=25`,
+      required: true,
+    },
   ];
 
-  for (const endpoint of conversationEndpoints) {
+  for (const item of conversationEndpoints) {
     try {
-      const response = await fetchInstagramJson<{ data?: InstagramConversation[]; paging?: Record<string, unknown>; error?: unknown }>(endpoint, accessToken);
+      const response = await fetchInstagramJson<{ data?: InstagramConversation[]; paging?: Record<string, unknown>; error?: unknown }>(item.endpoint, accessToken);
       const data = Array.isArray(response.data.data) ? response.data.data : [];
-      allConversations = [...allConversations, ...data];
+      if (response.ok) allConversations = [...allConversations, ...data];
       const nextValue = response.data.paging && typeof response.data.paging.next === "string" ? response.data.paging.next : "";
-      if (nextValue) pagingNextCandidates.push(nextValue);
+      if (response.ok && nextValue) pagingNextCandidates.push(nextValue);
       tests.push({
-        key: endpoint.includes("fields=") ? "conversations_fields" : "conversations_basic",
-        title: endpoint.includes("fields=") ? "خواندن گفتگوها با فیلدهای کامل" : "خواندن گفتگوها ساده",
+        key: item.key,
+        title: item.title,
         endpoint: response.url,
-        ok: response.ok,
+        ok: item.required ? response.ok : true,
         status: response.status,
         count: listCount(response.data),
         hasNext: hasNext(response.data),
@@ -208,11 +248,13 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
             ? `${data.length} گفتگو دریافت شد.`
             : "اتصال برقرار است، اما data خالی برگشت."
           : errorMessage(response.data),
-        sample: sample(response.data),
-        error: response.ok ? undefined : response.data,
+        hint: item.hint,
+        sample: sample(response.data, accessToken),
+        raw: sanitizeInstagramPayload(response.data, accessToken),
+        error: response.ok ? undefined : sanitizeInstagramPayload(response.data, accessToken),
       });
     } catch (error) {
-      tests.push({ key: "conversations_error", title: "خواندن گفتگوها", endpoint, ok: false, message: clean((error as Error).message), error });
+      tests.push({ key: item.key, title: item.title, endpoint: item.endpoint, ok: !item.required, message: clean((error as Error).message), hint: item.hint, error });
     }
   }
 
@@ -236,8 +278,9 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
         count: data.length,
         hasNext: hasNext(response.data),
         message: response.ok ? (data.length ? `${data.length} گفتگو در صفحه بعدی پیدا شد.` : "این صفحه هم خالی بود.") : errorMessage(response.data),
-        sample: sample(response.data),
-        error: response.ok ? undefined : response.data,
+        sample: sample(response.data, accessToken),
+        raw: sanitizeInstagramPayload(response.data, accessToken),
+        error: response.ok ? undefined : sanitizeInstagramPayload(response.data, accessToken),
       });
 
       const nextPaging = response.data.paging || {};
@@ -252,7 +295,7 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
   );
 
   const profileOk = tests.some((test) => test.key === "profile" && test.ok);
-  const conversationEndpointOk = tests.some((test) => test.key.startsWith("conversations") && test.ok);
+  const conversationEndpointOk = tests.some((test) => ["conversations_fields", "conversations_basic"].includes(test.key) && test.ok);
   const ok = profileOk && conversationEndpointOk;
   const emptyReason = ok && uniqueConversations.length === 0
     ? "اتصال و Permissionها درست است، اما Meta فعلاً گفتگو برنگرداند. در حالت Development معمولاً گفتگوهای کاربران عادی بعد از App Review/Publish کامل قابل دریافت می‌شود."
