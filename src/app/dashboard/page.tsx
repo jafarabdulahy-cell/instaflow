@@ -22,6 +22,9 @@ type DashboardData = {
     conversations: number;
     unread: number;
     webhookEvents: number;
+    leads?: number;
+    followups?: number;
+    customers?: number;
     webhookStatus: string;
   };
   accounts: Array<{
@@ -73,14 +76,15 @@ export default function DashboardPage() {
     const unread = stats?.unread ?? 0;
     const conversations = stats?.conversations ?? 0;
     const accounts = stats?.accounts ?? 0;
-    return Math.min(100, accounts * 25 + conversations * 9 + unread * 5 + (isConnected ? 20 : 0));
+    const leads = stats?.leads ?? 0;
+    return Math.min(100, accounts * 25 + conversations * 7 + leads * 6 + unread * 5 + (isConnected ? 20 : 0));
   }, [stats, isConnected]);
 
   const cards: MiniCard[] = [
     {
       label: "لید فعال",
-      hint: "گفتگوهای مشتری",
-      value: formatNumber(stats?.conversations),
+      hint: "در صف پیگیری",
+      value: formatNumber(stats?.leads),
       icon: UsersRound,
       tone: "from-[#2A105A] to-[#5B2BE2]",
     },
@@ -92,9 +96,9 @@ export default function DashboardPage() {
       tone: "from-[#0EA5E9] to-[#5B2BE2]",
     },
     {
-      label: "پیج متصل",
-      hint: "Business / Creator",
-      value: formatNumber(stats?.accounts),
+      label: "مشتری شد",
+      hint: "تبدیل شده",
+      value: formatNumber(stats?.customers),
       icon: UserPlus,
       tone: "from-[#FF2D55] to-[#8E58FF]",
     },
@@ -153,27 +157,31 @@ export default function DashboardPage() {
                 <p className="mt-2 text-[12px] font-bold text-white/78">لیدها، دایرکت و پیگیری مشتریان در یک صفحه</p>
               </div>
             </div>
-            <Link href="/dashboard/inbox" className="flex h-12 items-center justify-between rounded-[22px] bg-white px-3 text-[#5B2BE2] shadow-[0_16px_36px_rgba(42,16,90,0.16)]">
+            <Link href="/dashboard/leads" className="flex h-12 items-center justify-between rounded-[22px] bg-white px-3 text-[#5B2BE2] shadow-[0_16px_36px_rgba(42,16,90,0.16)]">
               <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[#F2EEFF]">
-                <MessageCircle className="h-5 w-5" />
+                <UsersRound className="h-5 w-5" />
               </span>
-              <span className="text-[14px] font-black">رفتن به اینباکس مشتریان</span>
+              <span className="text-[14px] font-black">رفتن به مدیریت لیدها</span>
             </Link>
           </div>
         </section>
 
-        <section className="grid h-[62px] shrink-0 grid-cols-3 gap-2">
+        <section className="grid h-[62px] shrink-0 grid-cols-4 gap-2">
           <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#5B2BE2] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
             <Home className="h-5 w-5" />
-            <span className="mt-1 text-[11px] font-black">داشبورد</span>
+            <span className="mt-1 text-[10px] font-black">داشبورد</span>
+          </Link>
+          <Link href="/dashboard/leads" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
+            <UsersRound className="h-5 w-5" />
+            <span className="mt-1 text-[10px] font-black">لیدها</span>
           </Link>
           <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
             <MessageCircle className="h-5 w-5" />
-            <span className="mt-1 text-[11px] font-black">اینباکس</span>
+            <span className="mt-1 text-[10px] font-black">اینباکس</span>
           </Link>
           <Link href="/connect" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
             <Settings className="h-5 w-5" />
-            <span className="mt-1 text-[11px] font-black">اتصال</span>
+            <span className="mt-1 text-[10px] font-black">اتصال</span>
           </Link>
         </section>
 
@@ -218,18 +226,22 @@ export default function DashboardPage() {
         </section>
 
         <nav className="h-[66px] shrink-0 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] safe-bottom">
-          <div className="grid h-full grid-cols-3 gap-2">
+          <div className="grid h-full grid-cols-4 gap-1">
             <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]">
               <Home className="h-5 w-5" />
-              <span className="mt-1 text-[11px] font-black">داشبورد</span>
+              <span className="mt-1 text-[10px] font-black">داشبورد</span>
+            </Link>
+            <Link href="/dashboard/leads" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]">
+              <UsersRound className="h-5 w-5" />
+              <span className="mt-1 text-[10px] font-black">لیدها</span>
             </Link>
             <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]">
               <MessageCircle className="h-5 w-5" />
-              <span className="mt-1 text-[11px] font-black">اینباکس</span>
+              <span className="mt-1 text-[10px] font-black">اینباکس</span>
             </Link>
             <Link href="/connect" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]">
               <Link2 className="h-5 w-5" />
-              <span className="mt-1 text-[11px] font-black">اتصال</span>
+              <span className="mt-1 text-[10px] font-black">اتصال</span>
             </Link>
           </div>
         </nav>
