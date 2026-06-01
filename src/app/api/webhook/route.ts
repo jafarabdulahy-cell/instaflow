@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { captureAutoLead, type AutoLeadSource } from "@/lib/auto-lead";
 
 const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || "";
 
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
   } catch (error) {
     console.error("webhook error", error);
+    // برای اینکه Meta دوباره پشت سرهم webhook را retry نکند، همیشه 200 برمی‌گردانیم.
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
   }
 }
@@ -42,7 +44,7 @@ async function processWebhookEvent(body: Record<string, unknown>) {
       },
     });
 
-    await prisma.webhookEvent.create({
+    const webhookEvent = await prisma.webhookEvent.create({
       data: {
         workspaceId: account?.workspaceId,
         instagramAccountId: account?.id,
@@ -52,13 +54,35 @@ async function processWebhookEvent(body: Record<string, unknown>) {
       },
     });
 
+    if (!account) continue;
+
+    let processedCount = 0;
+
     const messaging = Array.isArray(entry.messaging)
       ? (entry.messaging as Record<string, unknown>[])
       : [];
 
     for (const event of messaging) {
-      await handleNewDM(account, event);
+      const result = await handleNewDM(account, event);
+      if (result) processedCount += 1;
     }
+
+    const changes = Array.isArray(entry.changes)
+      ? (entry.changes as Record<string, unknown>[])
+      : [];
+
+    for (const change of changes) {
+      const result = await handleChangeInteraction(account, change);
+      if (result) processedCount += 1;
+    }
+
+    await prisma.webhookEvent.update({
+      where: { id: webhookEvent.id },
+      data: {
+        processed: processedCount > 0,
+        processedAt: processedCount > 0 ? new Date() : null,
+      },
+    });
   }
 }
 
@@ -72,74 +96,88 @@ function toInputJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function clean(value: unknown) {
+  return String(value || "").trim();
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    const text = clean(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function isStoryReply(event: Record<string, unknown>) {
+  const message = asRecord(event.message);
+  const referral = asRecord(event.referral);
+  const replyTo = asRecord(message.reply_to);
+  return Boolean(referral.story || replyTo.story || message.is_echo === false && clean(referral.source) === "STORY");
+}
+
 async function handleNewDM(
-  account: Awaited<ReturnType<typeof prisma.instagramAccount.findFirst>>,
+  account: NonNullable<Awaited<ReturnType<typeof prisma.instagramAccount.findFirst>>>,
   event: Record<string, unknown>
 ) {
-  if (!account) return;
+  const sender = asRecord(event.sender);
+  const message = asRecord(event.message);
+  const instagramUserId = firstString(sender.id);
+  if (!instagramUserId) return null;
 
-  const sender = event.sender as { id?: string } | undefined;
-  const message = event.message as
-    | { text?: string; mid?: string; attachments?: unknown[] }
-    | undefined;
+  // پیام‌های echo از سمت خود پیج نباید لید جدید بسازند.
+  if (message.is_echo === true) return null;
 
-  const instagramUserId = sender?.id;
-  const text = message?.text || "پیام جدید";
+  const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+  const text = firstString(
+    message.text,
+    attachments.length ? "پیام رسانه‌ای جدید" : "",
+    "پیام جدید"
+  );
 
-  if (!instagramUserId) return;
+  const source: AutoLeadSource = isStoryReply(event) ? "instagram_story_reply" : "instagram_dm";
 
-  const contact = await prisma.contact.upsert({
-    where: {
-      instagramAccountId_instagramUserId: {
-        instagramAccountId: account.id,
-        instagramUserId,
-      },
-    },
-    create: {
-      workspaceId: account.workspaceId,
-      instagramAccountId: account.id,
-      instagramUserId,
-      username: instagramUserId,
-      name: instagramUserId,
-      lastContactAt: new Date(),
-    },
-    update: {
-      lastContactAt: new Date(),
-    },
+  return captureAutoLead({
+    account,
+    instagramUserId,
+    username: firstString(sender.username),
+    displayName: firstString(sender.name, sender.username, sender.id),
+    text,
+    source,
+    externalId: firstString(message.mid, message.id),
+    rawPayload: event,
   });
+}
 
-  const conversation = await prisma.conversation.upsert({
-    where: {
-      instagramAccountId_instagramUserId: {
-        instagramAccountId: account.id,
-        instagramUserId,
-      },
-    },
-    create: {
-      workspaceId: account.workspaceId,
-      instagramAccountId: account.id,
-      contactId: contact.id,
-      instagramUserId,
-      username: contact.username,
-      displayName: contact.name || contact.username || instagramUserId,
-      lastMessage: text,
-      unreadCount: 1,
-    },
-    update: {
-      lastMessage: text,
-      unreadCount: { increment: 1 },
-      updatedAt: new Date(),
-    },
-  });
+async function handleChangeInteraction(
+  account: NonNullable<Awaited<ReturnType<typeof prisma.instagramAccount.findFirst>>>,
+  change: Record<string, unknown>
+) {
+  const field = clean(change.field);
+  const value = asRecord(change.value);
+  const from = asRecord(value.from);
 
-  await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      externalId: message?.mid,
-      direction: "inbound",
-      senderId: instagramUserId,
-      text,
-      rawPayload: toInputJson(event),
-    },
+  const instagramUserId = firstString(from.id, value.from_id, value.user_id, value.sender_id, value.id);
+  if (!instagramUserId) return null;
+
+  const source: AutoLeadSource = field.includes("comment") || value.comment_id || value.media_id
+    ? "instagram_comment"
+    : "instagram_interaction";
+
+  const rawText = firstString(value.text, value.message, value.caption, value.comment, "تعامل جدید اینستاگرام");
+  const text = source === "instagram_comment" ? `کامنت: ${rawText}` : rawText;
+
+  return captureAutoLead({
+    account,
+    instagramUserId,
+    username: firstString(from.username, value.username),
+    displayName: firstString(from.name, from.username, value.username, value.from_name, instagramUserId),
+    text,
+    source,
+    externalId: firstString(value.comment_id, value.id, value.media_id),
+    rawPayload: change,
   });
 }

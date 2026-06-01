@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/lib/auth";
+import { detectLeadSource } from "@/lib/auto-lead";
 
 const STATUSES = ["all", "lead", "followup", "customer", "vip", "lost", "blocked"];
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       : {}),
   };
 
-  const [leads, total, active, followup, customer, vip, lost] = await Promise.all([
+  const [leads, total, active, followup, customer, vip, lost, auto, autoDm, autoComment] = await Promise.all([
     prisma.contact.findMany({
       where,
       include: {
@@ -84,9 +85,20 @@ export async function GET(req: NextRequest) {
     prisma.contact.count({ where: { workspaceId: session.workspaceId, status: "customer" } }),
     prisma.contact.count({ where: { workspaceId: session.workspaceId, status: "vip" } }),
     prisma.contact.count({ where: { workspaceId: session.workspaceId, status: "lost" } }),
+    prisma.contact.count({ where: { workspaceId: session.workspaceId, notes: { contains: "[AutoLead:" } } }),
+    prisma.contact.count({ where: { workspaceId: session.workspaceId, notes: { contains: "[AutoLead:instagram_dm]" } } }),
+    prisma.contact.count({ where: { workspaceId: session.workspaceId, notes: { contains: "[AutoLead:instagram_comment]" } } }),
   ]);
 
-  return NextResponse.json({ leads, stats: { total, active, followup, customer, vip, lost } });
+  const normalizedLeads = leads.map((lead) => ({
+    ...lead,
+    leadSource: detectLeadSource(lead.notes),
+  }));
+
+  return NextResponse.json({
+    leads: normalizedLeads,
+    stats: { total, active, followup, customer, vip, lost, auto, autoDm, autoComment, manual: Math.max(0, total - auto) },
+  });
 }
 
 export async function POST(req: NextRequest) {

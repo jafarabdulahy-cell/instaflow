@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  Bot,
   CheckCircle2,
   Home,
   Link2,
@@ -11,7 +12,6 @@ import {
   Phone,
   Plus,
   Search,
-  Star,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -39,6 +39,7 @@ type Lead = {
   lastContactAt: string;
   instagramAccount?: { username?: string | null; name?: string | null };
   conversations?: Array<{ id: string; lastMessage?: string | null; unreadCount: number; updatedAt: string }>;
+  leadSource?: "dm" | "comment" | "story" | "instagram" | "manual";
 };
 
 type Stats = {
@@ -48,6 +49,10 @@ type Stats = {
   customer: number;
   vip: number;
   lost: number;
+  auto?: number;
+  autoDm?: number;
+  autoComment?: number;
+  manual?: number;
 };
 
 function formatCount(value?: number) {
@@ -60,6 +65,23 @@ function statusLabel(value?: string) {
 
 function leadName(lead: Lead) {
   return lead.name || lead.username || lead.phone || "لید بدون نام";
+}
+
+
+function sourceLabel(value?: string) {
+  if (value === "dm") return "از دایرکت";
+  if (value === "comment") return "از کامنت";
+  if (value === "story") return "از استوری";
+  if (value === "instagram") return "از اینستاگرام";
+  return "ثبت دستی";
+}
+
+function sourceClass(value?: string) {
+  if (value === "dm") return "bg-blue-50 text-blue-700 ring-blue-100";
+  if (value === "comment") return "bg-pink-50 text-pink-700 ring-pink-100";
+  if (value === "story") return "bg-amber-50 text-amber-700 ring-amber-100";
+  if (value === "instagram") return "bg-violet-50 text-violet-700 ring-violet-100";
+  return "bg-slate-50 text-slate-600 ring-slate-100";
 }
 
 function statusClass(value?: string) {
@@ -111,11 +133,6 @@ export default function LeadsPage() {
       });
   }, [q, filter]);
 
-  const activePercent = useMemo(() => {
-    if (!stats?.total) return 0;
-    return Math.round(((stats.customer + stats.followup + stats.vip) / stats.total) * 100);
-  }, [stats]);
-
   async function addLead(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (saving) return;
@@ -155,7 +172,7 @@ export default function LeadsPage() {
                 <UsersRound className="h-3.5 w-3.5" /> Customers & Leads
               </p>
               <h1 className="mt-2 text-[27px] font-black leading-none">لیدها و مشتریان</h1>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">ثبت، پیگیری و تبدیل لیدهای اینستاگرام به مشتری</p>
+              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">دایرکت و کامنت به‌صورت خودکار لید می‌شوند</p>
             </div>
           </div>
 
@@ -171,9 +188,9 @@ export default function LeadsPage() {
               <p className="mt-1 text-[10px] font-bold text-white/58">مشتری</p>
             </div>
             <div className="rounded-[20px] bg-white/10 p-2 text-center ring-1 ring-white/12">
-              <Star className="mx-auto h-4 w-4 text-[#FFD66B]" />
-              <p className="mt-1 text-[21px] font-black leading-none">{formatCount(activePercent)}٪</p>
-              <p className="mt-1 text-[10px] font-bold text-white/58">کیفیت</p>
+              <Bot className="mx-auto h-4 w-4 text-[#FFD66B]" />
+              <p className="mt-1 text-[21px] font-black leading-none">{formatCount(stats?.auto)}</p>
+              <p className="mt-1 text-[10px] font-bold text-white/58">خودکار</p>
             </div>
           </div>
         </header>
@@ -185,7 +202,7 @@ export default function LeadsPage() {
             </div>
             <div className="text-right">
               <p className="text-[15px] font-black">ثبت سریع لید</p>
-              <p className="text-[11px] font-bold text-[#7C748E]">بعداً از دایرکت هم خودکار اضافه می‌شود</p>
+              <p className="text-[11px] font-bold text-[#7C748E]">تکمیلی است؛ دایرکت/کامنت خودکار ثبت می‌شود</p>
             </div>
           </div>
 
@@ -229,7 +246,7 @@ export default function LeadsPage() {
                 <UserRound className="h-8 w-8" />
               </div>
               <h2 className="mt-4 text-[17px] font-black">هنوز لیدی ثبت نشده</h2>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-[#7C748E]">اولین لید را از فرم بالا ثبت کن یا بعداً از دایرکت تبدیلش کن.</p>
+              <p className="mt-2 text-[12px] font-bold leading-6 text-[#7C748E]">با دریافت دایرکت، کامنت یا ریپلای استوری، لیدها خودکار اینجا ساخته می‌شوند.</p>
             </div>
           ) : (
             items.map((lead) => {
@@ -242,6 +259,7 @@ export default function LeadsPage() {
                     </div>
                     <div className="min-w-0 flex-1 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${sourceClass(lead.leadSource)}`}>{sourceLabel(lead.leadSource)}</span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${statusClass(lead.status)}`}>{statusLabel(lead.status)}</span>
                         <p className="truncate text-[15px] font-black">{leadName(lead)}</p>
                       </div>
@@ -249,7 +267,8 @@ export default function LeadsPage() {
                         {lead.phone && <span className="inline-flex items-center gap-1" dir="ltr"><Phone className="h-3.5 w-3.5" /> {lead.phone}</span>}
                         {lead.username && <span dir="ltr">@{lead.username}</span>}
                       </div>
-                      {lead.notes && <p className="mt-2 line-clamp-2 text-[12px] font-bold leading-6 text-[#6D6780]">{lead.notes}</p>}
+                      {latest?.lastMessage && <p className="mt-2 line-clamp-1 text-[12px] font-black text-[#24123F]">آخرین تعامل: {latest.lastMessage}</p>}
+                      {lead.notes && <p className="mt-1 line-clamp-2 text-[12px] font-bold leading-6 text-[#6D6780]">{lead.notes}</p>}
                       {latest?.id && (
                         <Link href={`/dashboard/inbox/${latest.id}`} className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#F2EEFF] px-3 py-1 text-[11px] font-black text-[#5B2BE2]">
                           <MessageCircle className="h-3.5 w-3.5" /> مشاهده گفتگو
