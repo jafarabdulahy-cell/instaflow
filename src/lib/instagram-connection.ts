@@ -83,49 +83,56 @@ export async function resolveInstagramConnection(workspaceId: string): Promise<I
 }
 
 export async function ensureInstagramAccountFromConnection(workspaceId: string, connection: InstagramConnection) {
-  if (connection.account?.id && connection.account.instagramId === connection.instagramId) {
-    // اگر توکن از env آمده اما در دیتابیس مقدار قدیمی/placeholder است، آن را به توکن فعلی سرور sync می‌کنیم.
-    if (connection.source === "server_env" && connection.account.accessToken !== connection.accessToken) {
-      return prisma.instagramAccount.update({
-        where: { id: connection.account.id },
-        data: {
-          accessToken: connection.accessToken,
-          username: connection.username || connection.account.username,
-          name: connection.name || connection.account.name,
-          isActive: true,
-          connectedAt: new Date(),
-        },
-      });
-    }
-    return connection.account;
-  }
-
   let username = clean(connection.username) || "shanshin.rest";
   let name = clean(connection.name) || username;
+  let effectiveInstagramId = connection.instagramId;
 
   try {
     const profile = await verifyInstagramProfile({ instagramId: connection.instagramId, accessToken: connection.accessToken });
+    // v10: بعضی اوقات ID اولیه Meta و ID واقعی برگشتی از Instagram Graph فرق دارند.
+    // برای خواندن دایرکت‌ها و sync لیدها، ID برگشتی از API معتبرتر است.
+    effectiveInstagramId = clean(profile.id) || effectiveInstagramId;
     username = clean(profile.username) || username;
     name = clean(profile.name) || name;
   } catch {
-    // اگر پروفایل در لحظه قابل خواندن نبود، باز هم اتصال env را برای sync نگه می‌داریم و خطای اصلی در مرحله API برمی‌گردد.
+    // اگر پروفایل در لحظه قابل خواندن نبود، همان ID تنظیم‌شده را نگه می‌داریم و خطای اصلی در مرحله API برمی‌گردد.
   }
 
+  const matchingAccount = connection.account?.id && connection.account.instagramId === effectiveInstagramId
+    ? connection.account
+    : await prisma.instagramAccount.findFirst({
+        where: { workspaceId, instagramId: effectiveInstagramId },
+        orderBy: { connectedAt: "desc" },
+      });
+
   await prisma.instagramAccount.updateMany({
-    where: { workspaceId, instagramId: { not: connection.instagramId } },
+    where: { workspaceId, instagramId: { not: effectiveInstagramId } },
     data: { isActive: false },
   });
+
+  if (matchingAccount?.id) {
+    return prisma.instagramAccount.update({
+      where: { id: matchingAccount.id },
+      data: {
+        username,
+        name,
+        accessToken: connection.accessToken,
+        isActive: true,
+        connectedAt: new Date(),
+      },
+    });
+  }
 
   return prisma.instagramAccount.upsert({
     where: {
       workspaceId_instagramId: {
         workspaceId,
-        instagramId: connection.instagramId,
+        instagramId: effectiveInstagramId,
       },
     },
     create: {
       workspaceId,
-      instagramId: connection.instagramId,
+      instagramId: effectiveInstagramId,
       username,
       name,
       accessToken: connection.accessToken,

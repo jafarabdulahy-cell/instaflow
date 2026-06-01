@@ -20,7 +20,10 @@ export async function GET(req: NextRequest) {
     source: connection.source,
     account: {
       id: account?.id || "server-env",
-      instagramId: connection.instagramId,
+      instagramId: account?.instagramId || connection.instagramId,
+      configuredInstagramId: connection.instagramId,
+      resolvedInstagramId: account?.instagramId || connection.instagramId,
+      idMismatch: Boolean(account?.instagramId && account.instagramId !== connection.instagramId),
       username: account?.username || connection.username,
       name: account?.name || connection.name,
       tokenPreview: connection.tokenPreview,
@@ -53,9 +56,11 @@ export async function POST(req: NextRequest) {
 
   const username = clean(profile.username) || clean(body.username) || "instagram";
   const name = clean(profile.name) || clean(body.name) || username;
+  // v10: اگر API برای همین اکانت ID متفاوتی برگرداند، همان ID برگشتی را ذخیره می‌کنیم.
+  const resolvedInstagramId = clean(profile.id) || instagramId;
 
   await prisma.instagramAccount.updateMany({
-    where: { workspaceId: session.workspaceId, instagramId: { not: instagramId } },
+    where: { workspaceId: session.workspaceId, instagramId: { not: resolvedInstagramId } },
     data: { isActive: false },
   });
 
@@ -63,12 +68,12 @@ export async function POST(req: NextRequest) {
     where: {
       workspaceId_instagramId: {
         workspaceId: session.workspaceId,
-        instagramId,
+        instagramId: resolvedInstagramId,
       },
     },
     create: {
       workspaceId: session.workspaceId,
-      instagramId,
+      instagramId: resolvedInstagramId,
       username,
       name,
       accessToken,
@@ -88,6 +93,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     profile,
+    configuredInstagramId: instagramId,
+    resolvedInstagramId,
+    idMismatch: resolvedInstagramId !== instagramId,
     account: {
       id: account.id,
       instagramId: account.instagramId,

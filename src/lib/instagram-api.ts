@@ -206,27 +206,50 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
     tests.push({ key: "profile", title: "تست شناسایی اکانت", endpoint: profileEndpoint, ok: false, message: clean((error as Error).message), error });
   }
 
-  const conversationEndpoints = [
-    {
-      key: "conversations_fields",
-      title: "خواندن گفتگوها با فیلدهای کامل",
-      endpoint: `${instagramId}/conversations?fields=id,participants,updated_time&limit=25`,
-      required: true,
-    },
-    {
-      key: "conversations_nested_messages",
-      title: "خواندن گفتگوها همراه ۵ پیام اول",
-      endpoint: `${instagramId}/conversations?fields=id,participants,updated_time,messages.limit(5){id,message,from,to,created_time}&limit=10`,
-      required: false,
-      hint: "اگر این تست خطا داد اما تست ساده موفق بود، مشکل اتصال نیست؛ فقط Meta این فیلد تو در تو را در این حالت برنمی‌گرداند.",
-    },
-    {
-      key: "conversations_basic",
-      title: "خواندن گفتگوها ساده",
-      endpoint: `${instagramId}/conversations?limit=25`,
-      required: true,
-    },
-  ];
+  const resolvedInstagramId = clean(profile?.id) || instagramId;
+  const idMismatch = Boolean(resolvedInstagramId && instagramId && resolvedInstagramId !== instagramId);
+
+  if (idMismatch) {
+    tests.push({
+      key: "id_resolution",
+      title: "تشخیص ID واقعی API",
+      endpoint: "profile.id",
+      ok: true,
+      message: `ID تنظیم‌شده ${instagramId} است، اما API برای همین اکانت ID ${resolvedInstagramId} را برگرداند؛ از این نسخه گفتگوها با ID واقعی هم تست می‌شوند.`,
+      sample: { configuredInstagramId: instagramId, resolvedInstagramId },
+      raw: { configuredInstagramId: instagramId, resolvedInstagramId },
+    });
+  }
+
+  const idCandidates = Array.from(new Set([resolvedInstagramId, instagramId].filter((value): value is string => Boolean(value))));
+  const conversationEndpoints = idCandidates.flatMap((candidateId, index) => {
+    const suffix = candidateId === resolvedInstagramId ? "ID واقعی API" : "ID تنظیم‌شده";
+    const prefix = idCandidates.length > 1 ? `${suffix} - ` : "";
+    return [
+      {
+        key: `conversations_fields_${index}`,
+        title: `${prefix}خواندن گفتگوها با فیلدهای کامل`,
+        endpoint: `${candidateId}/conversations?fields=id,participants,updated_time&limit=25`,
+        required: true,
+        candidateId,
+      },
+      {
+        key: `conversations_nested_messages_${index}`,
+        title: `${prefix}خواندن گفتگوها همراه ۵ پیام اول`,
+        endpoint: `${candidateId}/conversations?fields=id,participants,updated_time,messages.limit(5){id,message,from,to,created_time}&limit=10`,
+        required: false,
+        candidateId,
+        hint: "اگر این تست خطا داد اما تست ساده موفق بود، مشکل اتصال نیست؛ فقط Meta این فیلد تو در تو را در این حالت برنمی‌گرداند.",
+      },
+      {
+        key: `conversations_basic_${index}`,
+        title: `${prefix}خواندن گفتگوها ساده`,
+        endpoint: `${candidateId}/conversations?limit=25`,
+        required: true,
+        candidateId,
+      },
+    ];
+  });
 
   for (const item of conversationEndpoints) {
     try {
@@ -295,15 +318,20 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
   );
 
   const profileOk = tests.some((test) => test.key === "profile" && test.ok);
-  const conversationEndpointOk = tests.some((test) => ["conversations_fields", "conversations_basic"].includes(test.key) && test.ok);
+  const conversationEndpointOk = tests.some((test) => /^conversations_(fields|basic)_/.test(test.key) && test.ok);
   const ok = profileOk && conversationEndpointOk;
   const emptyReason = ok && uniqueConversations.length === 0
-    ? "اتصال و Permissionها درست است، اما Meta فعلاً گفتگو برنگرداند. در حالت Development معمولاً گفتگوهای کاربران عادی بعد از App Review/Publish کامل قابل دریافت می‌شود."
+    ? idMismatch
+      ? "اتصال و Permissionها درست است و هر دو ID تنظیم‌شده و ID واقعی API تست شدند، اما Meta فعلاً گفتگو برنگرداند. در حالت Development معمولاً گفتگوهای کاربران عادی بعد از App Review/Publish کامل قابل دریافت می‌شود."
+      : "اتصال و Permissionها درست است، اما Meta فعلاً گفتگو برنگرداند. در حالت Development معمولاً گفتگوهای کاربران عادی بعد از App Review/Publish کامل قابل دریافت می‌شود."
     : "";
 
   return {
     ok,
     profile,
+    configuredInstagramId: instagramId,
+    resolvedInstagramId,
+    idMismatch,
     conversations: uniqueConversations,
     tests,
     emptyReason,

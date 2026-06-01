@@ -37,6 +37,9 @@ type ApiTest = {
 type Diagnostics = {
   ok: boolean;
   profile?: { id?: string; username?: string; name?: string; profile_picture_url?: string } | null;
+  configuredInstagramId?: string;
+  resolvedInstagramId?: string;
+  idMismatch?: boolean;
   conversations?: Array<{ id: string; updated_time?: string }>;
   tests?: ApiTest[];
   emptyReason?: string;
@@ -49,6 +52,9 @@ type SettingsResponse = {
   source?: "database" | "server_env" | null;
   account?: {
     instagramId: string;
+    configuredInstagramId?: string;
+    resolvedInstagramId?: string;
+    idMismatch?: boolean;
     username?: string | null;
     name?: string | null;
     tokenPreview?: string;
@@ -252,6 +258,13 @@ export default function ConnectPage() {
 
           <label className="mb-1 block text-right text-[11px] font-black text-[#6D6780]">Instagram ID</label>
           <Input dir="ltr" value={instagramId} onChange={(e) => setInstagramId(e.target.value)} className="h-11 rounded-2xl border-[#ECE8F6] bg-[#FAF9FF] text-left text-[13px] font-bold" />
+          {settings?.account?.idMismatch && (
+            <div className="mt-2 rounded-2xl bg-amber-50 p-2 text-right text-[10px] font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
+              ID ذخیره‌شده/واقعی با ID تنظیم‌شده سرور فرق دارد؛ v10 برای Sync از ID واقعی استفاده می‌کند.
+              <div className="mt-1 text-left" dir="ltr">Configured: {settings.account.configuredInstagramId}</div>
+              <div className="text-left" dir="ltr">Resolved: {settings.account.resolvedInstagramId}</div>
+            </div>
+          )}
 
           <div className="mt-3 flex items-center justify-between">
             {hasSavedToken && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">{serverTokenActive ? "مخفی روی سرور" : "ذخیره شده"}: {settings?.account?.tokenPreview}</span>}
@@ -309,7 +322,14 @@ export default function ConnectPage() {
             {diagnostics.profile && (
               <div className="mb-3 rounded-[22px] bg-[#FAF9FF] p-3 text-right ring-1 ring-[#ECE8F6]">
                 <p className="text-[13px] font-black">@{diagnostics.profile.username || "instagram"}</p>
-                <p className="mt-1 text-[11px] font-bold text-[#7C748E]" dir="ltr">ID: {diagnostics.profile.id || instagramId}</p>
+                <p className="mt-1 text-[11px] font-bold text-[#7C748E]" dir="ltr">Resolved ID: {diagnostics.resolvedInstagramId || diagnostics.profile.id || instagramId}</p>
+                {diagnostics.idMismatch && (
+                  <div className="mt-2 rounded-2xl bg-amber-50 p-2 text-[10px] font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
+                    ID تنظیم‌شده با ID برگشتی API فرق دارد. برنامه از این نسخه گفتگوها را با ID واقعی API هم تست می‌کند.
+                    <div className="mt-1 text-left" dir="ltr">Configured: {diagnostics.configuredInstagramId}</div>
+                    <div className="text-left" dir="ltr">Resolved: {diagnostics.resolvedInstagramId}</div>
+                  </div>
+                )}
               </div>
             )}
 
