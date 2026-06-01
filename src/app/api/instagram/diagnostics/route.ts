@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/lib/auth";
 import { clean, runInstagramDiagnostics } from "@/lib/instagram-api";
-
-async function activeAccount(workspaceId: string) {
-  return prisma.instagramAccount.findFirst({
-    where: { workspaceId, isActive: true, NOT: { accessToken: "manual" } },
-    orderBy: { connectedAt: "desc" },
-  });
-}
+import { resolveInstagramConnection } from "@/lib/instagram-connection";
 
 async function resolveInput(req: NextRequest, workspaceId: string) {
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
@@ -16,9 +9,9 @@ async function resolveInput(req: NextRequest, workspaceId: string) {
   const accessToken = clean(body.accessToken);
   if (instagramId && accessToken) return { instagramId, accessToken, source: "body" as const };
 
-  const account = await activeAccount(workspaceId);
-  if (!account?.instagramId || !account?.accessToken) return null;
-  return { instagramId: account.instagramId, accessToken: account.accessToken, source: "saved" as const };
+  const connection = await resolveInstagramConnection(workspaceId);
+  if (!connection?.instagramId || !connection?.accessToken) return null;
+  return { instagramId: connection.instagramId, accessToken: connection.accessToken, source: connection.source === "server_env" ? "server_env" as const : "saved" as const };
 }
 
 export async function GET(req: NextRequest) {

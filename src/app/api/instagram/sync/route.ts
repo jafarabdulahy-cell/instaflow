@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/lib/auth";
 import { captureAutoLead } from "@/lib/auto-lead";
 import { clean, fetchConversations, fetchInstagramJson } from "@/lib/instagram-api";
+import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -16,12 +16,6 @@ function firstString(...values: unknown[]) {
   return "";
 }
 
-async function activeAccount(workspaceId: string) {
-  return prisma.instagramAccount.findFirst({
-    where: { workspaceId, isActive: true, NOT: { accessToken: "manual" } },
-    orderBy: { connectedAt: "desc" },
-  });
-}
 
 async function fetchMessages(conversationId: string, accessToken: string) {
   // بعضی نسخه‌های Graph پیام‌ها را از /messages می‌دهند و بعضی از fields=messages. هر دو مسیر تست می‌شود.
@@ -47,10 +41,12 @@ export async function POST(req: NextRequest) {
   const session = await requireApiSession(req);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const account = await activeAccount(session.workspaceId);
-  if (!account?.instagramId || !account?.accessToken) {
-    return NextResponse.json({ error: "ابتدا Instagram ID و Token را در صفحه اتصال ذخیره کنید." }, { status: 400 });
+  const connection = await resolveInstagramConnection(session.workspaceId);
+  if (!connection?.instagramId || !connection?.accessToken) {
+    return NextResponse.json({ error: "ابتدا Instagram ID و Token را در صفحه اتصال یا Environment Variables ذخیره کنید." }, { status: 400 });
   }
+
+  const account = await ensureInstagramAccountFromConnection(session.workspaceId, connection);
 
   let imported = 0;
   let duplicates = 0;

@@ -36,12 +36,13 @@ type Diagnostics = {
   conversations?: Array<{ id: string; updated_time?: string }>;
   tests?: ApiTest[];
   emptyReason?: string;
-  source?: "saved" | "body";
+  source?: "saved" | "body" | "server_env";
   error?: string;
 };
 
 type SettingsResponse = {
   configured: boolean;
+  source?: "database" | "server_env" | null;
   account?: {
     instagramId: string;
     username?: string | null;
@@ -49,6 +50,7 @@ type SettingsResponse = {
     tokenPreview?: string;
     webhookStatus?: string;
     connectedAt?: string;
+    tokenStorage?: "database" | "server_env";
   } | null;
 };
 
@@ -68,6 +70,7 @@ export default function ConnectPage() {
   const [instagramId, setInstagramId] = useState("17841453193519327");
   const [accessToken, setAccessToken] = useState("");
   const [tokenTouched, setTokenTouched] = useState(false);
+  const [showTokenEditor, setShowTokenEditor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -77,14 +80,17 @@ export default function ConnectPage() {
   const [syncResult, setSyncResult] = useState<Record<string, unknown> | null>(null);
 
   const hasSavedToken = Boolean(settings?.account?.tokenPreview);
+  const serverTokenActive = settings?.source === "server_env" || settings?.account?.tokenStorage === "server_env";
+  const shouldShowTokenEditor = !hasSavedToken || showTokenEditor;
   const canTest = Boolean(instagramId.trim() && (accessToken.trim() || hasSavedToken));
 
   const headline = useMemo(() => {
     if (diagnostics?.ok && diagnostics.conversations?.length) return "دایرکت‌ها از API دریافت شدند";
     if (diagnostics?.ok) return "اتصال برقرار است؛ فعلاً data خالی است";
+    if (serverTokenActive) return "توکن مخفی سرور فعال است";
     if (settings?.configured) return "اتصال ذخیره شده؛ آماده تست";
     return "اتصال Instagram API";
-  }, [diagnostics, settings]);
+  }, [diagnostics, settings, serverTokenActive]);
 
   async function loadSettings() {
     const res = await fetch("/api/instagram/settings");
@@ -130,6 +136,7 @@ export default function ConnectPage() {
         setSettings({ configured: true, account: saveJson.account });
         setAccessToken("");
         setTokenTouched(false);
+        setShowTokenEditor(false);
       }
 
       await runDiagnostics(true);
@@ -224,7 +231,7 @@ export default function ConnectPage() {
             </div>
             <div className="text-right">
               <p className="text-[15px] font-black">تنظیم اتصال رسمی</p>
-              <p className="text-[11px] font-bold text-[#7C748E]">توکن در خروجی API نمایش داده نمی‌شود</p>
+              <p className="text-[11px] font-bold text-[#7C748E]">توکن مخفی می‌ماند و لازم نیست هر بار وارد شود</p>
             </div>
           </div>
 
@@ -232,20 +239,31 @@ export default function ConnectPage() {
           <Input dir="ltr" value={instagramId} onChange={(e) => setInstagramId(e.target.value)} className="h-11 rounded-2xl border-[#ECE8F6] bg-[#FAF9FF] text-left text-[13px] font-bold" />
 
           <div className="mt-3 flex items-center justify-between">
-            {hasSavedToken && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">ذخیره شده: {settings?.account?.tokenPreview}</span>}
+            {hasSavedToken && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">{serverTokenActive ? "مخفی روی سرور" : "ذخیره شده"}: {settings?.account?.tokenPreview}</span>}
             <label className="block text-right text-[11px] font-black text-[#6D6780]">Access Token</label>
           </div>
-          <textarea
-            dir="ltr"
-            value={accessToken}
-            onChange={(e) => {
-              setAccessToken(e.target.value);
-              setTokenTouched(true);
-            }}
-            placeholder={hasSavedToken ? "برای تعویض توکن، توکن جدید را اینجا بگذار" : "توکن اینستاگرام را اینجا وارد کن"}
-            className="mt-1 h-24 w-full resize-none rounded-2xl border border-[#ECE8F6] bg-[#FAF9FF] px-3 py-2 text-left text-[12px] font-bold outline-none focus:ring-2 focus:ring-[#D8CCFF]"
-          />
-          {tokenTouched && accessToken && <p className="mt-1 flex items-center justify-end gap-1 text-[11px] font-bold text-[#7C748E]"><EyeOff className="h-3.5 w-3.5" /> قبل از ارسال عکس، توکن را مخفی کن.</p>}
+
+          {hasSavedToken && !shouldShowTokenEditor ? (
+            <div className="mt-1 rounded-[22px] bg-emerald-50 p-3 text-right ring-1 ring-emerald-100">
+              <p className="text-[12px] font-black text-emerald-800">توکن فعال است و در فرم نمایش داده نمی‌شود.</p>
+              <p className="mt-1 text-[11px] font-bold leading-5 text-emerald-700">{serverTokenActive ? "توکن از Environment Variables سرور خوانده می‌شود؛ لازم نیست هر بار وارد کنی." : "توکن قبلاً ذخیره شده؛ فقط اگر منقضی شد یا عوضش کردی، توکن جدید را وارد کن."}</p>
+              <button type="button" onClick={() => setShowTokenEditor(true)} className="mt-2 rounded-2xl bg-white px-3 py-2 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">تعویض توکن</button>
+            </div>
+          ) : (
+            <>
+              <textarea
+                dir="ltr"
+                value={accessToken}
+                onChange={(e) => {
+                  setAccessToken(e.target.value);
+                  setTokenTouched(true);
+                }}
+                placeholder={hasSavedToken ? "برای تعویض توکن، توکن جدید را اینجا بگذار" : "توکن اینستاگرام را اینجا وارد کن"}
+                className="mt-1 h-24 w-full resize-none rounded-2xl border border-[#ECE8F6] bg-[#FAF9FF] px-3 py-2 text-left text-[12px] font-bold outline-none focus:ring-2 focus:ring-[#D8CCFF]"
+              />
+              {tokenTouched && accessToken && <p className="mt-1 flex items-center justify-end gap-1 text-[11px] font-bold text-[#7C748E]"><EyeOff className="h-3.5 w-3.5" /> قبل از ارسال عکس، توکن را مخفی کن.</p>}
+            </>
+          )}
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Button disabled={loading || !canTest} className="h-11 rounded-2xl bg-[#5B2BE2] text-[12px] font-black text-white shadow-lg shadow-violet-200 hover:bg-[#4A20C9]">

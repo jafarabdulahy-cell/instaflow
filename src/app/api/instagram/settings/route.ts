@@ -2,34 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/lib/auth";
 import { clean, maskToken, verifyInstagramProfile } from "@/lib/instagram-api";
-
-async function getActiveAccount(workspaceId: string) {
-  return prisma.instagramAccount.findFirst({
-    where: { workspaceId, isActive: true, NOT: { accessToken: "manual" } },
-    orderBy: { connectedAt: "desc" },
-  });
-}
+import { resolveInstagramConnection } from "@/lib/instagram-connection";
 
 export async function GET(req: NextRequest) {
   const session = await requireApiSession(req);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const account = await getActiveAccount(session.workspaceId);
-  if (!account) {
-    return NextResponse.json({ configured: false, account: null });
+  const connection = await resolveInstagramConnection(session.workspaceId);
+  if (!connection) {
+    return NextResponse.json({ configured: false, account: null, source: null });
   }
 
+  const account = connection.account;
+
   return NextResponse.json({
-    configured: Boolean(account.instagramId && account.accessToken),
+    configured: Boolean(connection.instagramId && connection.accessToken),
+    source: connection.source,
     account: {
-      id: account.id,
-      instagramId: account.instagramId,
-      username: account.username,
-      name: account.name,
-      tokenPreview: maskToken(account.accessToken),
-      webhookStatus: account.webhookStatus,
-      connectedAt: account.connectedAt,
-      isActive: account.isActive,
+      id: account?.id || "server-env",
+      instagramId: connection.instagramId,
+      username: account?.username || connection.username,
+      name: account?.name || connection.name,
+      tokenPreview: connection.tokenPreview,
+      webhookStatus: account?.webhookStatus || "server_env",
+      connectedAt: account?.connectedAt || null,
+      isActive: account?.isActive ?? true,
+      tokenStorage: connection.source === "server_env" ? "server_env" : "database",
     },
   });
 }
