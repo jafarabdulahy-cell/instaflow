@@ -99,6 +99,7 @@ export default function ConnectPage() {
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [syncResult, setSyncResult] = useState<Record<string, unknown> | null>(null);
+  const [publicBaseUrl, setPublicBaseUrl] = useState("");
 
   const hasSavedToken = Boolean(settings?.account?.tokenPreview);
   const serverTokenActive = settings?.source === "server_env" || settings?.account?.tokenStorage === "server_env";
@@ -126,6 +127,7 @@ export default function ConnectPage() {
 
   useEffect(() => {
     loadSettings().catch(() => setSettings(null));
+    if (typeof window !== "undefined") setPublicBaseUrl(window.location.origin);
   }, []);
 
   async function saveAndTest(e: FormEvent<HTMLFormElement>) {
@@ -376,6 +378,33 @@ export default function ConnectPage() {
             </div>
           </section>
         )}
+
+
+        <section className="rounded-[26px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">پل موقت</span>
+            <div>
+              <p className="text-[15px] font-black text-[#24123F]">اتصال ManyChat / Directam به لیدها</p>
+              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">تا قبل از App Review، دایرکت‌ها می‌توانند از ابزار تأییدشده به این پنل ارسال شوند.</p>
+            </div>
+          </div>
+          <div className="rounded-[22px] bg-[#FAF9FF] p-3 ring-1 ring-[#ECE8F6]">
+            <p className="mb-1 text-[11px] font-black text-[#6D6780]">Webhook URL برای External Request</p>
+            <pre dir="ltr" className="overflow-auto rounded-2xl bg-[#17112A] p-2 text-left text-[10px] font-bold leading-5 text-white">{`${publicBaseUrl || "https://YOUR-RAILWAY-DOMAIN"}/api/integrations/bridge`}</pre>
+            <p className="mt-2 text-[11px] font-bold leading-5 text-[#6D6780]">در Railway یک مقدار امن بگذار: <span dir="ltr" className="font-black text-[#24123F]">INSTAFLOW_BRIDGE_SECRET</span>. در ManyChat/Directam همین مقدار را با Header زیر بفرست:</p>
+            <pre dir="ltr" className="mt-2 overflow-auto rounded-2xl bg-[#F2EEFF] p-2 text-left text-[10px] font-bold leading-5 text-[#5B2BE2]">x-instaflow-secret: YOUR_SECRET</pre>
+          </div>
+          <details className="mt-2 rounded-[22px] bg-blue-50 p-3 ring-1 ring-blue-100">
+            <summary className="cursor-pointer text-right text-[11px] font-black text-blue-800">نمونه Body برای تست پل</summary>
+            <pre dir="ltr" className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-white p-2 text-left text-[10px] font-bold leading-5 text-blue-900">{`{
+  "instagramUserId": "{{user_id}}",
+  "username": "{{username}}",
+  "name": "{{full_name}}",
+  "message": "{{last_text_input}}",
+  "source": "manychat"
+}`}</pre>
+          </details>
+        </section>
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="font-black text-[#24123F]">توضیح مشکل دوم</p>
