@@ -89,7 +89,7 @@ export default function InboxPage() {
                 <MessageCircle className="h-3.5 w-3.5" /> Instagram Inbox
               </p>
               <h1 className="mt-2 text-[25px] font-black leading-tight">{title}</h1>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">این صفحه مسیر مستقل شانشین را نشان می‌دهد؛ بدون ManyChat یا Directam.</p>
+              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">این صفحه مسیر مستقل و رسمی Meta API شانشین را نشان می‌دهد.</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">

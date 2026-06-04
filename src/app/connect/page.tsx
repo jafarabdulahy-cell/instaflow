@@ -383,7 +383,7 @@ export default function ConnectPage() {
             <span className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">مسیر مستقل شانشین</span>
             <div>
               <p className="text-[15px] font-black text-[#24123F]">آماده‌سازی App Review</p>
-              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">از این نسخه مسیر ManyChat/Directam کنار گذاشته شده و تمرکز روی اپ رسمی خودمان است.</p>
+              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">تمرکز این مسیر فقط روی اتصال رسمی Meta API و اپ مستقل ShanshinDM است.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -391,7 +391,7 @@ export default function ConnectPage() {
             <Link href="/dashboard/inbox" className="rounded-[22px] bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8] active:scale-95">اینباکس مستقل</Link>
           </div>
           <div className="mt-2 rounded-[22px] bg-blue-50 p-3 text-[11px] font-bold leading-6 text-blue-900 ring-1 ring-blue-100">
-            قدم بعدی پروژه: کامل کردن Inbox، Webhook رسمی، صفحه‌های Privacy/Terms/Data Deletion و آماده کردن ویدئوی تست برای Meta Review. تا قبل از تأیید، data خالی خطای برنامه نیست؛ یک وضعیت قابل تشخیص در پنل است.
+            قدم بعدی پروژه: تنظیم Webhook رسمی در Meta Dashboard، ضبط ویدئوی تست، و ارسال Permissionها برای App Review. تا قبل از تأیید، خالی بودن data خطای برنامه نیست؛ یک وضعیت قابل تشخیص در پنل است.
           </div>
         </section>
 
