@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Loader2, MessageCircle, RefreshCcw, Send, ShieldCheck } from "lucide-react";
 
@@ -104,6 +104,10 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [sendingKey, setSendingKey] = useState("");
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
+  const [autoSyncStatus, setAutoSyncStatus] = useState("Auto Reply در حالت تستِ زنده آماده است؛ هر ۲۰ ثانیه آخرین دایرکت بررسی می‌شود.");
+  const [lastAutoSyncAt, setLastAutoSyncAt] = useState("");
+  const autoSyncLock = useRef(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [message, setMessage] = useState("");
   const conversations = diagnostics?.conversations || [];
@@ -115,9 +119,11 @@ export default function InboxPage() {
     return "اینباکس رسمی Meta";
   }, [conversations.length, diagnostics?.ok, loading]);
 
-  async function loadInbox() {
-    setLoading(true);
-    setMessage("");
+  const loadInbox = useCallback(async (quiet = false) => {
+    if (!quiet) {
+      setLoading(true);
+      setMessage("");
+    }
     try {
       const res = await fetch("/api/instagram/inbox-test", { cache: "no-store" });
       const json = await res.json();
@@ -127,7 +133,7 @@ export default function InboxPage() {
       }
       if (!res.ok && !json) throw new Error("خواندن وضعیت اینباکس ناموفق بود.");
       setDiagnostics(json);
-      if (json?.error) {
+      if (json?.error && !quiet) {
         const base = json.advancedAccessNeeded
           ? `${json.error} — اتصال درست است، اما برای خواندن همه دایرکت‌ها Advanced Access لازم است.`
           : json.error;
@@ -135,11 +141,12 @@ export default function InboxPage() {
 ${json.hint}` : base);
       }
     } catch (error) {
-      setMessage((error as Error).message || "خطا در خواندن اینباکس.");
+      if (!quiet) setMessage((error as Error).message || "خطا در خواندن اینباکس.");
+      if (quiet) setAutoSyncStatus((error as Error).message || "خطا در خواندن اینباکس.");
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
-  }
+  }, []);
 
   async function syncDirects() {
     setSyncing(true);
@@ -149,13 +156,38 @@ ${json.hint}` : base);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "همگام‌سازی ناموفق بود.");
       setMessage(json.message || "همگام‌سازی انجام شد.");
-      await loadInbox();
+      setLastAutoSyncAt(new Date().toLocaleTimeString("fa-IR"));
+      await loadInbox(true);
     } catch (error) {
       setMessage((error as Error).message || "خطا در همگام‌سازی.");
     } finally {
       setSyncing(false);
     }
   }
+
+  const runAutomaticSync = useCallback(async () => {
+    if (autoSyncLock.current) return;
+    autoSyncLock.current = true;
+    try {
+      const res = await fetch("/api/instagram/sync", { method: "POST", cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Auto Reply Sync ناموفق بود.");
+      const sent = Number(json.sentReplies || 0);
+      const imported = Number(json.imported || 0);
+      const duplicates = Number(json.duplicates || 0);
+      setLastAutoSyncAt(new Date().toLocaleTimeString("fa-IR"));
+      setAutoSyncStatus(!json.liveSendAllowed
+        ? "Auto Reply در UI روشن است، اما ارسال واقعی در Railway هنوز live نشده است. دو Variable مربوط به live را فعال کنید."
+        : sent > 0
+          ? `✅ ${sent.toLocaleString("fa-IR")} پاسخ خودکار به دایرکت اینستاگرام ارسال شد.`
+          : `Auto Reply فعال است؛ ${imported.toLocaleString("fa-IR")} پیام جدید، ${duplicates.toLocaleString("fa-IR")} تکراری، پاسخ جدیدی ارسال نشد.`);
+      await loadInbox(true);
+    } catch (error) {
+      setAutoSyncStatus((error as Error).message || "خطا در Auto Reply Sync.");
+    } finally {
+      autoSyncLock.current = false;
+    }
+  }, [loadInbox]);
 
   async function sendReplyToInstagram(msg: DiagnosticsMessage) {
     const replyText = msg.autoReply?.privateReplyText || msg.autoReply?.responseText || "";
@@ -186,7 +218,21 @@ ${json.hint}` : base);
 
   useEffect(() => {
     loadInbox();
-  }, []);
+  }, [loadInbox]);
+
+  useEffect(() => {
+    if (!autoSyncEnabled) return;
+    const firstRun = window.setTimeout(() => {
+      void runAutomaticSync();
+    }, 2500);
+    const timer = window.setInterval(() => {
+      void runAutomaticSync();
+    }, 20000);
+    return () => {
+      window.clearTimeout(firstRun);
+      window.clearInterval(timer);
+    };
+  }, [autoSyncEnabled, runAutomaticSync]);
 
   return (
     <div dir="rtl" className="min-h-[100dvh] bg-[#F4F0FF] text-[#17112A]">
@@ -212,12 +258,30 @@ ${json.hint}` : base);
         </header>
 
         <section className="grid grid-cols-2 gap-2">
-          <button onClick={loadInbox} disabled={loading} className="h-12 rounded-[22px] bg-white text-[12px] font-black text-[#5B2BE2] shadow-[0_12px_26px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6] disabled:opacity-50">
+          <button onClick={() => loadInbox()} disabled={loading} className="h-12 rounded-[22px] bg-white text-[12px] font-black text-[#5B2BE2] shadow-[0_12px_26px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6] disabled:opacity-50">
             {loading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : <><RefreshCcw className="ml-1 inline h-4 w-4" /> تازه‌سازی</>}
           </button>
           <button onClick={syncDirects} disabled={syncing || !diagnostics?.ok || !conversations.length} className="h-12 rounded-[22px] bg-[#17112A] text-[12px] font-black text-white shadow-[0_12px_26px_rgba(42,16,90,0.12)] disabled:opacity-50">
             {syncing ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sync تستی یک گفتگو"}
           </button>
+        </section>
+
+        <section className="rounded-[24px] bg-emerald-50 p-3 text-right text-[11px] font-bold leading-6 text-emerald-900 shadow-[0_14px_34px_rgba(42,16,90,0.05)] ring-1 ring-emerald-100">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setAutoSyncEnabled((value) => !value)}
+              className={`rounded-2xl px-3 py-2 text-[11px] font-black ${autoSyncEnabled ? "bg-emerald-600 text-white" : "bg-white text-emerald-700 ring-1 ring-emerald-100"}`}
+            >
+              {autoSyncEnabled ? "Auto Reply روشن" : "Auto Reply خاموش"}
+            </button>
+            <div className="text-right">
+              <p className="font-black">ارسال خودکار دایرکت</p>
+              <p className="mt-0.5 text-[10px] text-emerald-800/80">{autoSyncStatus}</p>
+              {lastAutoSyncAt && <p className="mt-0.5 text-[10px] text-emerald-800/70">آخرین بررسی: {lastAutoSyncAt}</p>}
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] leading-5 text-emerald-800/80">برای تست بدون Webhook، این صفحه را باز نگه دار. برنامه هر ۲۰ ثانیه آخرین گفتگو را می‌خواند و اگر پیام جدید مثل «منو» باشد، پاسخ را خودکار در Instagram DM ارسال می‌کند.</p>
         </section>
 
 
@@ -304,7 +368,7 @@ ${json.hint}` : base);
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="flex items-center justify-end gap-2 font-black text-[#24123F]"><ShieldCheck className="h-4 w-4 text-[#5B2BE2]" /> مسیر بعدی</p>
-          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v21 کنار هر پیام ورودی، پاسخ آماده ارسال ساخته می‌شود و با دکمه ارسال، همان پاسخ داخل دایرکت اینستاگرام برای همان کاربر ارسال می‌شود.</p>
+          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v22 علاوه بر دکمه دستی، Auto Reply تستی فعال شده است: اگر این صفحه باز بماند یا Webhook متا تنظیم شود، پیام‌های کلیدی مثل «منو» به‌صورت خودکار پاسخ می‌گیرند.</p>
           <Link href="/dashboard/automation" className="mt-3 block rounded-2xl bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">تست قانون‌های جواب خودکار</Link>
         </section>
       </main>

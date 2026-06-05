@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { captureAutoLead } from "@/lib/auto-lead";
-import { buildAutoReplyDecision } from "@/lib/auto-reply";
+import { buildAutoReplyDecision, getAutoReplyMode, isLiveAutoReplyAllowed } from "@/lib/auto-reply";
 import { clean, fetchConversations, fetchConversationMessages, fetchFacebookJson, fetchInstagramJson, sendInstagramTextMessage } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
   const debug: Array<Record<string, unknown>> = [];
   let sentReplies = 0;
   let skippedReplies = 0;
+  const autoReplyMode = getAutoReplyMode();
+  const liveSendAllowed = isLiveAutoReplyAllowed();
 
   const usePageToken = connection.mode === "page_token" && Boolean(connection.pageId);
   let effectivePageToken = connection.pageAccessToken || connection.accessToken;
@@ -214,10 +216,14 @@ export async function POST(req: NextRequest) {
     duplicates,
     sentReplies,
     skippedReplies,
+    autoReplyMode,
+    liveSendAllowed,
     empty: conversationList.length === 0,
     message: conversationList.length === 0
       ? "اتصال برقرار است اما Meta فعلاً گفتگویی برنگرداند."
-      : `Sync تستی انجام شد: ${checkedConversations} گفتگو بررسی شد، ${imported} پیام جدید به لید تبدیل شد و ${sentReplies} پاسخ به اینستاگرام ارسال شد.`,
+      : liveSendAllowed
+        ? `Sync خودکار انجام شد: ${checkedConversations} گفتگو بررسی شد، ${imported} پیام جدید به لید تبدیل شد و ${sentReplies} پاسخ به اینستاگرام ارسال شد.`
+        : `Sync انجام شد: ${checkedConversations} گفتگو بررسی شد و ${imported} پیام جدید به لید تبدیل شد. ارسال خودکار هنوز خاموش است؛ برای ارسال واقعی INSTAFLOW_AUTO_REPLY_MODE=live و INSTAFLOW_ALLOW_LIVE_SEND=true را در Railway بگذارید.`,
     debug,
   });
 }
