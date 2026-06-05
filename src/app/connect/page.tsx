@@ -370,7 +370,7 @@ export default function ConnectPage() {
             </div>
 
             <Button onClick={syncDirects} disabled={syncing || !settings?.configured} className="mt-3 h-11 w-full rounded-2xl bg-[#17112A] text-[12px] font-black text-white hover:bg-[#2A2140]">
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} همگام‌سازی دایرکت‌ها با لیدها
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />} Sync تستی یک گفتگو به لیدها
             </Button>
           </section>
         )}
@@ -393,7 +393,7 @@ export default function ConnectPage() {
             <span className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">مسیر درست Page Token</span>
             <div>
               <p className="text-[15px] font-black text-[#24123F]">آماده‌سازی App Review</p>
-              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">دایرکت‌ها با graph.facebook.com و Page Access Token خوانده می‌شوند.</p>
+              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">دایرکت‌ها با graph.facebook.com و Page Access Token خوانده می‌شوند؛ قبل از Advanced Access فقط تست سبک یک گفتگو انجام می‌شود.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -407,7 +407,7 @@ export default function ConnectPage() {
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="font-black text-[#24123F]">توضیح مشکل دوم</p>
-          <p className="mt-1">اگر Page Token درست باشد، برنامه در حالت تست فقط آخرین گفتگو را با limit=1 و چند پیام آخر همان گفتگو را نشان می‌دهد. اگر Meta خطای Timeout/Advanced Access بدهد، یعنی مسیر فنی درست است ولی برای دایرکت‌های زیاد باید App Review کامل شود.</p>
+          <p className="mt-1">اگر Page Token درست باشد، برنامه در حالت تست فقط آخرین گفتگو را با limit=1 و چند پیام آخر همان گفتگو را نشان می‌دهد؛ Sync هم فعلاً فقط روی همین یک گفتگو اجرا می‌شود. اگر Meta خطای Timeout/Advanced Access بدهد، یعنی مسیر فنی درست است ولی برای دایرکت‌های زیاد باید App Review کامل شود.</p>
         </section>
 
         <nav className="fixed bottom-3 left-1/2 z-20 h-[66px] w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] backdrop-blur-xl">

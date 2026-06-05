@@ -4,6 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Loader2, MessageCircle, RefreshCcw, ShieldCheck } from "lucide-react";
 
+type DiagnosticsMessage = {
+  id: string;
+  message?: string;
+  from?: { id?: string; username?: string; name?: string };
+  to?: { data?: Array<{ id?: string; username?: string; name?: string }> };
+  created_time?: string;
+  attachments?: unknown;
+};
+
+type DiagnosticsConversation = {
+  id: string;
+  updated_time?: string;
+  participants?: unknown;
+  messages?: DiagnosticsMessage[];
+};
+
 type Diagnostics = {
   ok?: boolean;
   profile?: { id?: string; username?: string; name?: string } | null;
@@ -12,18 +28,7 @@ type Diagnostics = {
   idMismatch?: boolean;
   mode?: "page_token" | "instagram_login";
   pageId?: string;
-  conversations?: Array<{
-    id: string;
-    updated_time?: string;
-    participants?: unknown;
-    messages?: Array<{
-      id: string;
-      message?: string;
-      from?: { id?: string; username?: string; name?: string };
-      to?: { data?: Array<{ id?: string; username?: string; name?: string }> };
-      created_time?: string;
-    }>;
-  }>;
+  conversations?: DiagnosticsConversation[];
   emptyReason?: string;
   error?: string;
 };
@@ -36,6 +41,47 @@ function formatDate(value?: string) {
     return value;
   }
 }
+
+
+function shortId(value?: string) {
+  if (!value) return "—";
+  return value.length > 22 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
+}
+
+function firstAttachmentLabel(attachments: unknown) {
+  if (!attachments || typeof attachments !== "object") return "";
+  const record = attachments as Record<string, unknown>;
+  const data = Array.isArray(record.data) ? record.data : [];
+  if (!data.length) return "";
+  return "پیام غیرمتنی / عکس یا استوری";
+}
+
+function conversationTitle(item: DiagnosticsConversation, profile?: Diagnostics["profile"]) {
+  const selfIds = new Set([profile?.id, profile?.username].filter(Boolean));
+  const names: string[] = [];
+  for (const msg of item.messages || []) {
+    const fromId = msg.from?.id || msg.from?.username;
+    if (fromId && !selfIds.has(fromId)) {
+      const name = msg.from?.username || msg.from?.name || msg.from?.id;
+      if (name && !names.includes(name)) names.push(name);
+    }
+    for (const to of msg.to?.data || []) {
+      const toId = to.id || to.username;
+      if (toId && !selfIds.has(toId)) {
+        const name = to.username || to.name || to.id;
+        if (name && !names.includes(name)) names.push(name);
+      }
+    }
+  }
+  return names[0] ? `@${names[0]}` : "گفتگوی تستی";
+}
+
+function messageText(msg: DiagnosticsMessage) {
+  const text = (msg.message || "").trim();
+  if (text) return text;
+  return firstAttachmentLabel(msg.attachments) || "پیام بدون متن / مدیا";
+}
+
 
 export default function InboxPage() {
   const [loading, setLoading] = useState(false);
@@ -92,20 +138,20 @@ export default function InboxPage() {
   return (
     <div dir="rtl" className="min-h-[100dvh] bg-[#F4F0FF] text-[#17112A]">
       <main className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col gap-3 px-4 pb-8 pt-3">
-        <header className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#17112A] via-[#5B2BE2] to-[#FF2D80] p-4 text-white shadow-[0_22px_60px_rgba(42,16,90,0.24)]">
+        <header className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#17112A] via-[#5B2BE2] to-[#FF2D80] p-3 text-white shadow-[0_22px_60px_rgba(42,16,90,0.24)]">
           <div className="flex items-start justify-between gap-3">
-            <Link href="/dashboard" className="grid h-11 w-11 place-items-center rounded-2xl bg-white/14 ring-1 ring-white/18 active:scale-95">
+            <Link href="/dashboard" className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/14 ring-1 ring-white/18 active:scale-95">
               <ArrowRight className="h-5 w-5" />
             </Link>
             <div className="text-right">
               <p className="inline-flex items-center gap-1 rounded-full bg-white/12 px-3 py-1 text-[11px] font-black text-white/82">
                 <MessageCircle className="h-3.5 w-3.5" /> Instagram Inbox
               </p>
-              <h1 className="mt-2 text-[25px] font-black leading-tight">{title}</h1>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">دایرکت‌ها از مسیر صحیح Page Token خوانده می‌شوند.</p>
+              <h1 className="mt-2 text-[21px] font-black leading-tight">{title}</h1>
+              <p className="mt-1 text-[11px] font-bold leading-5 text-white/70">دایرکت‌ها از مسیر صحیح Page Token خوانده می‌شوند.</p>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div className="rounded-[20px] bg-white/10 p-2 ring-1 ring-white/12"><p className="text-[18px] font-black">@{diagnostics?.profile?.username || "—"}</p><p className="mt-1 text-[10px] font-bold text-white/58">اکانت</p></div>
             <div className="rounded-[20px] bg-white/10 p-2 ring-1 ring-white/12"><p className="text-[22px] font-black">{conversations.length.toLocaleString("fa-IR")}</p><p className="mt-1 text-[10px] font-bold text-white/58">گفتگو</p></div>
             <div className="rounded-[20px] bg-white/10 p-2 ring-1 ring-white/12"><p className="text-[18px] font-black">{diagnostics?.ok ? "OK" : "—"}</p><p className="mt-1 text-[10px] font-bold text-white/58">API</p></div>
@@ -117,7 +163,7 @@ export default function InboxPage() {
             {loading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : <><RefreshCcw className="ml-1 inline h-4 w-4" /> تازه‌سازی</>}
           </button>
           <button onClick={syncDirects} disabled={syncing || !diagnostics?.ok} className="h-12 rounded-[22px] bg-[#17112A] text-[12px] font-black text-white shadow-[0_12px_26px_rgba(42,16,90,0.12)] disabled:opacity-50">
-            {syncing ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sync به لیدها"}
+            {syncing ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sync تستی یک گفتگو"}
           </button>
         </section>
 
@@ -148,7 +194,10 @@ export default function InboxPage() {
               <div key={item.id} className="rounded-[24px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6]">
                 <div className="flex items-center justify-between gap-2">
                   <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">دریافت شد</span>
-                  <p className="text-[12px] font-black text-[#24123F]" dir="ltr">{item.id}</p>
+                  <div className="min-w-0 text-right">
+                    <p className="truncate text-[14px] font-black text-[#24123F]" dir="ltr">{conversationTitle(item, diagnostics?.profile)}</p>
+                    <p className="mt-1 text-[10px] font-bold text-[#8A8498]" dir="ltr">ID: {shortId(item.id)}</p>
+                  </div>
                 </div>
                 <p className="mt-2 text-[11px] font-bold text-[#6D6780]">آخرین بروزرسانی: {formatDate(item.updated_time)}</p>
                 {item.messages?.length ? (
@@ -161,7 +210,7 @@ export default function InboxPage() {
                             <span className="text-[10px] text-[#8A8498]">{formatDate(msg.created_time)}</span>
                             <span dir="ltr" className="text-[10px] font-black">@{msg.from?.username || "user"}</span>
                           </div>
-                          <p>{msg.message || "پیام بدون متن / مدیا"}</p>
+                          <p>{messageText(msg)}</p>
                         </div>
                       );
                     })}

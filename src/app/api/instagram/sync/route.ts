@@ -29,7 +29,7 @@ async function fetchMessages(conversationId: string, accessToken: string, graph:
 
   // بعضی نسخه‌های Graph پیام‌ها را از /messages می‌دهند و بعضی از fields=messages. هر دو مسیر تست می‌شود.
   const direct = await fetchInstagramJson<{ data?: Record<string, unknown>[]; error?: unknown }>(
-    `${conversationId}/messages?fields=id,from,to,message,created_time&limit=10`,
+    `${conversationId}/messages?fields=id,from,to,message,created_time,attachments&limit=10`,
     accessToken
   );
 
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       const fromId = firstString(from.id);
       const fromUsername = firstString(from.username);
       const fromName = firstString(from.name, fromUsername, fromId);
-      const text = firstString(message.message, "پیام جدید");
+      const text = firstString(message.message, "پیام غیرمتنی / مدیا");
       const externalId = firstString(message.id);
 
       // پیام‌های خروجی خود پیج نباید به عنوان لید جدید وارد شوند.
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     empty: conversationList.length === 0,
     message: conversationList.length === 0
       ? "اتصال برقرار است اما Meta فعلاً گفتگویی برنگرداند."
-      : `${checkedConversations} گفتگو بررسی شد و ${imported} پیام جدید به لید تبدیل شد.`,
+      : `Sync تستی انجام شد: ${checkedConversations} گفتگو بررسی شد و ${imported} پیام جدید به لید تبدیل شد.`,
     debug,
   });
 }

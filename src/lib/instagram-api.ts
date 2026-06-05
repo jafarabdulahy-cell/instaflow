@@ -38,6 +38,7 @@ export type InstagramConversationMessage = {
   from?: { id?: string; username?: string; name?: string };
   to?: { data?: Array<{ id?: string; username?: string; name?: string }> };
   created_time?: string;
+  attachments?: unknown;
 };
 
 export type InstagramConversation = {
@@ -227,17 +228,28 @@ export async function verifyPageProfile(input: InstagramAccountInput) {
 }
 
 export async function fetchConversationMessages(conversationId: string, accessToken: string, options: FetchOptions = {}) {
-  const response = await fetchGraphJson<{ data?: InstagramConversationMessage[]; paging?: Record<string, unknown>; error?: unknown }>(
-    `${conversationId}/messages?fields=id,message,from,to,created_time&limit=10`,
+  const graph = options.graph || "facebook";
+  const withAttachments = await fetchGraphJson<{ data?: InstagramConversationMessage[]; paging?: Record<string, unknown>; error?: unknown }>(
+    `${conversationId}/messages?fields=id,message,from,to,created_time,attachments&limit=10`,
     accessToken,
-    { ...options, graph: options.graph || "facebook" }
+    { ...options, graph }
   );
 
-  if (!response.ok) {
-    throw new Error(errorMessage(response.data) || "خواندن پیام‌های گفتگو ناموفق بود.");
+  if (withAttachments.ok) return withAttachments.data;
+
+  // بعضی نسخه‌ها/پیام‌ها فیلد attachments را در Graph API برنمی‌گردانند؛
+  // برای اینکه خواندن دایرکت خراب نشود، یک بار با فیلدهای ساده‌تر تلاش می‌کنیم.
+  const basic = await fetchGraphJson<{ data?: InstagramConversationMessage[]; paging?: Record<string, unknown>; error?: unknown }>(
+    `${conversationId}/messages?fields=id,message,from,to,created_time&limit=10`,
+    accessToken,
+    { ...options, graph }
+  );
+
+  if (!basic.ok) {
+    throw new Error(errorMessage(basic.data) || errorMessage(withAttachments.data) || "خواندن پیام‌های گفتگو ناموفق بود.");
   }
 
-  return response.data;
+  return basic.data;
 }
 
 export async function fetchConversations(input: InstagramAccountInput, path?: string) {
