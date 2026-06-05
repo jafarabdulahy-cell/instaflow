@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import Link from "next/link";
 import {
+  Activity,
   Bell,
+  BookOpen,
   Bot,
   Home,
   Link2,
   LogOut,
   MessageCircle,
+  MessageSquare,
+  Paperclip,
   Settings,
   Sparkles,
   UserPlus,
@@ -130,10 +134,13 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="grid h-[116px] shrink-0 grid-cols-5 gap-2">
-          <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#5B2BE2] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><Home className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">داشبورد</span></Link>
+        <section className="grid h-[132px] shrink-0 grid-cols-4 gap-2">
           <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><MessageCircle className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">اینباکس</span></Link>
-          <Link href="/dashboard/automation/rules" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><Bot className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">قوانین</span></Link>
+          <Link href="/dashboard/automation/rules" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#5B2BE2] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><Bot className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">قوانین</span></Link>
+          <Link href="/dashboard/assets" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><Paperclip className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">پیوست‌ها</span></Link>
+          <Link href="/dashboard/comments" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><MessageSquare className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">کامنت</span></Link>
+          <Link href="/dashboard/templates" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><BookOpen className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">قالب‌ها</span></Link>
+          <Link href="/dashboard/logs" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><Activity className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">لاگ‌ها</span></Link>
           <Link href="/dashboard/leads" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><UsersRound className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">لیدها</span></Link>
           <Link href="/connect" className="flex flex-col items-center justify-center rounded-[22px] bg-white text-[#24123F] shadow-[0_10px_28px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><Settings className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">اتصال</span></Link>
         </section>

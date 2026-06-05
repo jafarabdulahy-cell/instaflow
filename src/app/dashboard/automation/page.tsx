@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Bot, CheckCircle2, Home, Link2, Loader2, MessageCircle, Plus, ShieldAlert, UsersRound, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Bot, CheckCircle2, FileText, Home, Link2, Loader2, MessageCircle, MessageSquare, Paperclip, Plus, ShieldAlert, UsersRound, Zap } from "lucide-react";
 
 type Decision = {
   shouldReply: boolean;
@@ -109,6 +109,13 @@ export default function AutomationPage() {
         </section>
 
         <Link href="/dashboard/automation/rules" className="flex h-14 items-center justify-center gap-2 rounded-[22px] bg-gradient-to-l from-[#5B2BE2] to-[#B000B8] text-[14px] font-black text-white shadow-[0_18px_34px_rgba(91,43,226,0.22)]"><Plus className="h-5 w-5" /> مدیریت و افزودن قوانین دستی</Link>
+
+        <section className="grid grid-cols-4 gap-2">
+          <Link href="/dashboard/assets" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><Paperclip className="h-4 w-4" />پیوست</Link>
+          <Link href="/dashboard/comments" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><MessageSquare className="h-4 w-4" />کامنت</Link>
+          <Link href="/dashboard/templates" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><BookOpen className="h-4 w-4" />قالب‌ها</Link>
+          <Link href="/dashboard/logs" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><FileText className="h-4 w-4" />لاگ‌ها</Link>
+        </section>
 
         <section className="rounded-[28px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <div className="mb-2 flex items-center justify-between">

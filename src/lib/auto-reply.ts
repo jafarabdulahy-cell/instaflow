@@ -1,4 +1,5 @@
 import { buildRuleResponseText, findMatchingManualAutoReplyRule } from "@/lib/auto-reply-rules";
+import { buildCommentRuleDmText, findMatchingCommentAutomationRule } from "@/lib/v24-features";
 
 export type AutoReplySource = "instagram_dm" | "instagram_comment" | "instagram_story_reply" | "instagram_interaction";
 
@@ -289,6 +290,28 @@ export async function buildAutoReplyDecisionForWorkspace(input: {
   const source = (clean(input.source) || "instagram_dm") as AutoReplySource;
   const mode = getAutoReplyMode();
   const liveSendAllowed = isLiveAutoReplyAllowed();
+  if (source === "instagram_comment") {
+    const commentRule = await findMatchingCommentAutomationRule(workspaceId, input.text).catch(() => null);
+    if (commentRule) {
+      const responseText = buildCommentRuleDmText(commentRule);
+      const shouldReply = mode !== "off" && Boolean(responseText || commentRule.publicReply);
+      return {
+        shouldReply,
+        mode,
+        liveSendAllowed,
+        category: "custom",
+        confidence: 98,
+        trigger: commentRule.triggers[0] || commentRule.name,
+        action: "comment_private_reply",
+        responseText,
+        publicCommentReply: commentRule.publicReply || `سلام 🌹 ${commentRule.name} را در دایرکت ارسال کردیم.`,
+        privateReplyText: commentRule.sendDm ? responseText : undefined,
+        needsHumanReview: !shouldReply || mode !== "live" || !liveSendAllowed,
+        reason: `کامنت با قانون دستی «${commentRule.name}» تشخیص داده شد.`,
+      };
+    }
+  }
+
   const manualRule = await findMatchingManualAutoReplyRule(workspaceId, input.text);
 
   if (!manualRule) return buildAutoReplyDecision(input);

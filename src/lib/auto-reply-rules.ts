@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 export type ManualRuleMatchType = "equals" | "contains";
 export type ManualRuleMediaType = "none" | "image" | "video" | "audio" | "file" | "link";
 
+export type ManualRuleAttachment = { type: ManualRuleMediaType; url: string; label?: string };
+
 export type ManualAutoReplyRule = {
   id: string;
   workspaceId: string;
@@ -13,6 +15,7 @@ export type ManualAutoReplyRule = {
   responseText: string;
   mediaType: ManualRuleMediaType;
   mediaUrl: string;
+  attachments: ManualRuleAttachment[];
   isActive: boolean;
   sendOnce: boolean;
   createdAt?: string | Date;
@@ -26,6 +29,11 @@ export type CreateManualRuleInput = {
   responseText?: string;
   mediaType?: string;
   mediaUrl?: string;
+  attachments?: ManualRuleAttachment[] | string;
+  imageUrl?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+  fileUrl?: string;
   isActive?: boolean;
   sendOnce?: boolean;
 };
@@ -39,6 +47,7 @@ type RawRuleRow = {
   response_text: string;
   media_type: string | null;
   media_url: string | null;
+  attachments?: string | null;
   is_active: boolean;
   send_once: boolean;
   created_at: Date;
@@ -85,6 +94,50 @@ function safeJsonArray(value: unknown): string[] {
   return text.split(/[،,\n]/).map(clean).filter(Boolean);
 }
 
+
+function safeAttachments(input: unknown): ManualRuleAttachment[] {
+  const items: unknown[] = Array.isArray(input) ? input : (() => {
+    const text = clean(input);
+    if (!text) return [];
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  return items
+    .map((item) => {
+      const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      const url = ensureUrl(record.url);
+      if (!url) return null;
+      return { type: toMediaType(record.type || record.mediaType), url, label: clean(record.label || record.name) || undefined };
+    })
+    .filter(Boolean)
+    .slice(0, 8) as ManualRuleAttachment[];
+}
+
+function attachmentsFromInput(input: CreateManualRuleInput): ManualRuleAttachment[] {
+  const base = safeAttachments(input.attachments);
+  const extra: ManualRuleAttachment[] = [];
+  const imageUrl = ensureUrl(input.imageUrl);
+  const videoUrl = ensureUrl(input.videoUrl);
+  const audioUrl = ensureUrl(input.audioUrl);
+  const fileUrl = ensureUrl(input.fileUrl);
+  if (imageUrl) extra.push({ type: "image", url: imageUrl, label: "عکس" });
+  if (videoUrl) extra.push({ type: "video", url: videoUrl, label: "ویدیو" });
+  if (audioUrl) extra.push({ type: "audio", url: audioUrl, label: "صدا" });
+  if (fileUrl) extra.push({ type: "file", url: fileUrl, label: "فایل" });
+  const seen = new Set<string>();
+  return [...base, ...extra].filter((item) => {
+    const key = `${item.type}:${item.url}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 8);
+}
+
 function toMatchType(value: unknown): ManualRuleMatchType {
   const text = clean(value).toLowerCase();
   return text === "contains" || text === "شامل" ? "contains" : "equals";
@@ -118,6 +171,7 @@ function rowToRule(row: RawRuleRow): ManualAutoReplyRule {
     responseText: row.response_text || "",
     mediaType: toMediaType(row.media_type),
     mediaUrl: row.media_url || "",
+    attachments: safeAttachments(row.attachments),
     isActive: Boolean(row.is_active),
     sendOnce: row.send_once !== false,
     createdAt: row.created_at,
@@ -134,12 +188,16 @@ export function mediaLabel(type: ManualRuleMediaType) {
   return "رسانه";
 }
 
-export function buildRuleResponseText(rule: Pick<ManualAutoReplyRule, "responseText" | "mediaType" | "mediaUrl">) {
+export function buildRuleResponseText(rule: Pick<ManualAutoReplyRule, "responseText" | "mediaType" | "mediaUrl" | "attachments">) {
   const text = clean(rule.responseText);
+  const lines: string[] = [];
   const url = ensureUrl(rule.mediaUrl);
-  if (!url || rule.mediaType === "none") return text;
-  const line = `${mediaLabel(rule.mediaType)}: ${url}`;
-  return [text, line].filter(Boolean).join("\n\n").slice(0, 1900);
+  if (url && rule.mediaType !== "none") lines.push(`${mediaLabel(rule.mediaType)}: ${url}`);
+  for (const item of rule.attachments || []) {
+    const itemUrl = ensureUrl(item.url);
+    if (itemUrl) lines.push(`${item.label || mediaLabel(item.type)}: ${itemUrl}`);
+  }
+  return [text, ...lines].filter(Boolean).join("\n\n").slice(0, 1900);
 }
 
 async function ensureRulesTable() {
@@ -159,6 +217,7 @@ async function ensureRulesTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]'`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_auto_reply_rules_workspace_idx ON instaflow_auto_reply_rules(workspace_id, is_active)`);
 }
 
@@ -168,9 +227,10 @@ export function sanitizeRuleInput(input: CreateManualRuleInput) {
   const responseText = clean(input.responseText);
   const mediaType = toMediaType(input.mediaType);
   const mediaUrl = ensureUrl(input.mediaUrl);
+  const attachments = attachmentsFromInput(input);
 
   if (!triggers.length) throw new Error("حداقل یک کلمه کلیدی/فعال‌کننده وارد کنید.");
-  if (!responseText && !mediaUrl) throw new Error("متن پاسخ یا لینک رسانه/فایل الزامی است.");
+  if (!responseText && !mediaUrl && !attachments.length) throw new Error("متن پاسخ یا لینک رسانه/فایل الزامی است.");
 
   return {
     name: name.slice(0, 140),
@@ -179,6 +239,7 @@ export function sanitizeRuleInput(input: CreateManualRuleInput) {
     responseText: responseText.slice(0, 1800),
     mediaType: mediaUrl ? mediaType === "none" ? "link" : mediaType : "none",
     mediaUrl: mediaUrl.slice(0, 700),
+    attachments,
     isActive: input.isActive !== false,
     sendOnce: input.sendOnce !== false,
   };
@@ -215,8 +276,8 @@ export async function createManualAutoReplyRule(workspaceId: string, input: Crea
   const ruleId = randomUUID();
   await ensureRulesTable();
   await prisma.$executeRawUnsafe(
-    `INSERT INTO instaflow_auto_reply_rules (id, workspace_id, name, triggers, match_type, response_text, media_type, media_url, is_active, send_once)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    `INSERT INTO instaflow_auto_reply_rules (id, workspace_id, name, triggers, match_type, response_text, media_type, media_url, attachments, is_active, send_once)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     ruleId,
     id,
     data.name,
@@ -225,6 +286,7 @@ export async function createManualAutoReplyRule(workspaceId: string, input: Crea
     data.responseText,
     data.mediaType,
     data.mediaUrl || null,
+    JSON.stringify(data.attachments),
     data.isActive,
     data.sendOnce
   );
@@ -241,7 +303,7 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
   await ensureRulesTable();
   await prisma.$executeRawUnsafe(
     `UPDATE instaflow_auto_reply_rules
-     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, is_active=$9, send_once=$10, updated_at=NOW()
+     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, is_active=$10, send_once=$11, updated_at=NOW()
      WHERE workspace_id=$1 AND id=$2`,
     id,
     rid,
@@ -251,6 +313,7 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
     data.responseText,
     data.mediaType,
     data.mediaUrl || null,
+    JSON.stringify(data.attachments),
     data.isActive,
     data.sendOnce
   );
