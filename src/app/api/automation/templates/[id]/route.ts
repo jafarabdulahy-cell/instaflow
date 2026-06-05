@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { deleteReplyTemplate } from "@/lib/v24-features";
 
-type Params = { params: { id: string } };
+type RouteContext = { params: Promise<{ id: string }> };
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
   const session = await requireApiSession(req);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await deleteReplyTemplate(session.workspaceId, params.id);
+  const { id } = await context.params;
+  await deleteReplyTemplate(session.workspaceId, id);
   return NextResponse.json({ ok: true });
 }
