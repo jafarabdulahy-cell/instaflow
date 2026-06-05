@@ -29,7 +29,7 @@ async function fetchMessages(conversationId: string, accessToken: string, graph:
 
   // بعضی نسخه‌های Graph پیام‌ها را از /messages می‌دهند و بعضی از fields=messages. هر دو مسیر تست می‌شود.
   const direct = await fetchInstagramJson<{ data?: Record<string, unknown>[]; error?: unknown }>(
-    `${conversationId}/messages?fields=id,from,to,message,created_time&limit=25`,
+    `${conversationId}/messages?fields=id,from,to,message,created_time&limit=10`,
     accessToken
   );
 
@@ -72,13 +72,13 @@ export async function POST(req: NextRequest) {
       pageAccessToken: connection.pageAccessToken || connection.accessToken,
     },
     usePageToken
-      ? `${connection.pageId}/conversations?platform=instagram&fields=id,updated_time&limit=25`
-      : `${account.instagramId}/conversations?fields=id,participants,updated_time&limit=25`
+      ? `${connection.pageId}/conversations?platform=instagram&fields=id,updated_time&limit=1`
+      : `${account.instagramId}/conversations?fields=id,participants,updated_time&limit=5`
   );
 
   const conversationList = Array.isArray(conversations.data) ? conversations.data : [];
 
-  for (const conversation of conversationList.slice(0, 25)) {
+  for (const conversation of conversationList.slice(0, 1)) {
     if (!conversation.id) continue;
     checkedConversations += 1;
     const messages = await fetchMessages(conversation.id, connection.accessToken, usePageToken ? "facebook" : "instagram");

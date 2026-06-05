@@ -244,7 +244,7 @@ export async function fetchConversations(input: InstagramAccountInput, path?: st
   const pageMode = isPageMode(input);
   const token = pageMode ? pageToken(input) : clean(input.accessToken);
   const endpoint = path || (pageMode
-    ? `${clean(input.pageId)}/conversations?platform=instagram&fields=id,updated_time&limit=10`
+    ? `${clean(input.pageId)}/conversations?platform=instagram&fields=id,updated_time&limit=1`
     : `${clean(input.instagramId)}/conversations?fields=id,participants,updated_time`);
   const response = await fetchGraphJson<{ data?: InstagramConversation[]; paging?: Record<string, unknown>; error?: unknown }>(
     endpoint,
@@ -261,11 +261,11 @@ export async function fetchConversations(input: InstagramAccountInput, path?: st
 
 async function fetchFirstMessagesForDiagnostics(conversations: InstagramConversation[], token: string) {
   const output: InstagramConversation[] = [];
-  for (const conversation of conversations.slice(0, 5)) {
+  for (const conversation of conversations.slice(0, 1)) {
     if (!conversation.id) continue;
     try {
       const messages = await fetchConversationMessages(conversation.id, token, { graph: "facebook" });
-      output.push({ ...conversation, messages: Array.isArray(messages.data) ? messages.data.slice(0, 5) : [] });
+      output.push({ ...conversation, messages: Array.isArray(messages.data) ? messages.data.slice(0, 10) : [] });
     } catch {
       output.push(conversation);
     }
@@ -323,18 +323,15 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
       tests.push({ key: "page_profile", title: "تست Page و اتصال Instagram Business", endpoint: pageEndpoint, ok: false, message: clean((error as Error).message), error });
     }
 
+    // v15: برای اکانت‌های پر دایرکت، درخواست لیست کامل گفتگوها در Development به خطای
+    // "Please reduce the amount of data" یا Timeout می‌خورد. پس ابتدا فقط آخرین گفتگو
+    // را با سبک‌ترین فیلدها می‌گیریم؛ این دقیقاً همان تست موفق Graph API Explorer است.
     const conversationEndpoints = [
       {
-        key: "page_conversations_light",
-        title: "خواندن گفتگوها از Page Token",
-        endpoint: `${pageId}/conversations?platform=instagram&limit=10&fields=id,updated_time`,
+        key: "page_conversations_probe",
+        title: "تست سبک آخرین گفتگو از Page Token",
+        endpoint: `${pageId}/conversations?platform=instagram&limit=1&fields=id,updated_time`,
         required: true,
-      },
-      {
-        key: "page_conversations_basic",
-        title: "خواندن ساده گفتگوها از Page Token",
-        endpoint: `${pageId}/conversations?platform=instagram&limit=5`,
-        required: false,
       },
     ];
 
@@ -370,7 +367,7 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
 
     const uniqueBase = Array.from(new Map(allConversations.filter((item) => item?.id).map((item) => [item.id, item])).values());
     const uniqueConversations = await fetchFirstMessagesForDiagnostics(uniqueBase, pageAccessToken);
-    const ok = tests.some((test) => test.key === "page_profile" && test.ok) && tests.some((test) => test.key === "page_conversations_light" && test.ok);
+    const ok = tests.some((test) => test.key === "page_profile" && test.ok) && tests.some((test) => test.key === "page_conversations_probe" && test.ok);
     const emptyReason = ok && uniqueConversations.length === 0
       ? "اتصال Page Token برقرار است، اما Meta فعلاً گفتگویی برنگرداند. اگر خطای Timeout/Advanced Access دیدی، برای دایرکت‌های واقعی باید instagram_manage_messages را Review/Advanced Access کنی."
       : "";

@@ -87,6 +87,7 @@ function safeJson(value: unknown) {
     return JSON.stringify(value ?? {}, null, 2)
       .replace(/(access_token=)[^&\s"]+/g, "$1••••")
       .replace(/(access_token%3D)[^%&\s"]+/gi, "$1••••")
+      .replace(/(EAA[A-Za-z0-9_\-]{16,})/g, "EAA••••")
       .replace(/(IGA[A-Za-z0-9_\-]{16,})/g, "IGA••••");
   } catch {
     return String(value || "");
@@ -406,7 +407,7 @@ export default function ConnectPage() {
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="font-black text-[#24123F]">توضیح مشکل دوم</p>
-          <p className="mt-1">اگر Page Token درست باشد، برنامه لیست گفتگوها و چند پیام آخر هر گفتگو را نشان می‌دهد. اگر Meta خطای Timeout/Advanced Access بدهد، یعنی مسیر فنی درست است ولی برای دایرکت‌های زیاد باید App Review کامل شود.</p>
+          <p className="mt-1">اگر Page Token درست باشد، برنامه در حالت تست فقط آخرین گفتگو را با limit=1 و چند پیام آخر همان گفتگو را نشان می‌دهد. اگر Meta خطای Timeout/Advanced Access بدهد، یعنی مسیر فنی درست است ولی برای دایرکت‌های زیاد باید App Review کامل شود.</p>
         </section>
 
         <nav className="fixed bottom-3 left-1/2 z-20 h-[66px] w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] backdrop-blur-xl">
