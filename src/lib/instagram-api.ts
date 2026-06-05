@@ -545,3 +545,97 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
     emptyReason,
   };
 }
+
+export async function postGraphJson<T = Record<string, unknown>>(
+  pathOrUrl: string,
+  accessToken: string,
+  body: Record<string, unknown>,
+  options: FetchOptions = {}
+): Promise<{ ok: boolean; status: number; data: T; url: string }> {
+  const url = graphApiUrl(pathOrUrl, accessToken, options);
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  const text = await res.text();
+  let data: T;
+  try {
+    data = JSON.parse(text || "{}") as T;
+  } catch {
+    data = { raw: text } as T;
+  }
+
+  url.searchParams.set("access_token", maskToken(accessToken));
+  return { ok: res.ok, status: res.status, data, url: url.toString() };
+}
+
+export async function postFacebookJson<T = Record<string, unknown>>(
+  pathOrUrl: string,
+  accessToken: string,
+  body: Record<string, unknown>,
+  options: FetchOptions = {}
+): Promise<{ ok: boolean; status: number; data: T; url: string }> {
+  return postGraphJson<T>(pathOrUrl, accessToken, body, { ...options, graph: "facebook" });
+}
+
+export async function sendInstagramTextMessage(input: {
+  instagramId: string;
+  accessToken: string;
+  recipientId: string;
+  text: string;
+}) {
+  const instagramId = clean(input.instagramId);
+  const recipientId = clean(input.recipientId);
+  const text = clean(input.text).slice(0, 950);
+  if (!instagramId || !recipientId || !text) {
+    throw new Error("instagramId, recipientId و متن پیام برای ارسال دایرکت الزامی است.");
+  }
+
+  return postFacebookJson(
+    `${instagramId}/messages`,
+    input.accessToken,
+    {
+      recipient: { id: recipientId },
+      message: { text },
+    }
+  );
+}
+
+export async function sendInstagramPrivateReply(input: {
+  commentId: string;
+  accessToken: string;
+  text: string;
+}) {
+  const commentId = clean(input.commentId);
+  const text = clean(input.text).slice(0, 950);
+  if (!commentId || !text) {
+    throw new Error("commentId و متن پاسخ خصوصی الزامی است.");
+  }
+
+  return postFacebookJson(
+    `${commentId}/private_replies`,
+    input.accessToken,
+    { message: text }
+  );
+}
+
+export async function replyToInstagramComment(input: {
+  commentId: string;
+  accessToken: string;
+  text: string;
+}) {
+  const commentId = clean(input.commentId);
+  const text = clean(input.text).slice(0, 950);
+  if (!commentId || !text) {
+    throw new Error("commentId و متن پاسخ کامنت الزامی است.");
+  }
+
+  return postFacebookJson(
+    `${commentId}/replies`,
+    input.accessToken,
+    { message: text }
+  );
+}

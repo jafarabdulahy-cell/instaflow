@@ -4,6 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Loader2, MessageCircle, RefreshCcw, ShieldCheck } from "lucide-react";
 
+type AutoReplyPreview = {
+  shouldReply: boolean;
+  mode: string;
+  category: string;
+  confidence: number;
+  trigger: string;
+  action: string;
+  responseText: string;
+  privateReplyText?: string;
+  publicCommentReply?: string;
+  needsHumanReview: boolean;
+};
+
 type DiagnosticsMessage = {
   id: string;
   message?: string;
@@ -11,6 +24,7 @@ type DiagnosticsMessage = {
   to?: { data?: Array<{ id?: string; username?: string; name?: string }> };
   created_time?: string;
   attachments?: unknown;
+  autoReply?: AutoReplyPreview;
 };
 
 type DiagnosticsConversation = {
@@ -236,6 +250,12 @@ ${json.hint}` : base);
                             <span dir="ltr" className="text-[10px] font-black">@{msg.from?.username || "user"}</span>
                           </div>
                           <p>{messageText(msg)}</p>
+                          {incoming && msg.autoReply?.shouldReply && (
+                            <div className="mt-2 rounded-xl bg-white/80 p-2 text-right text-[10px] font-bold leading-5 text-[#5B2BE2] ring-1 ring-[#E6DCF8]">
+                              <p className="font-black">پاسخ پیشنهادی خودکار: {msg.autoReply.trigger} | {msg.autoReply.confidence}%</p>
+                              <p className="mt-1 text-[#24123F]">{msg.autoReply.privateReplyText || msg.autoReply.responseText}</p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -248,7 +268,8 @@ ${json.hint}` : base);
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="flex items-center justify-end gap-2 font-black text-[#24123F]"><ShieldCheck className="h-4 w-4 text-[#5B2BE2]" /> مسیر بعدی</p>
-          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. برای استفاده عمومی با اکانت‌های زیاد، App Review و Advanced Access لازم است.</p>
+          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v20 کنار هر پیام ورودی، پاسخ پیشنهادی خودکار هم ساخته می‌شود.</p>
+          <Link href="/dashboard/automation" className="mt-3 block rounded-2xl bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">تست قانون‌های جواب خودکار</Link>
         </section>
       </main>
     </div>

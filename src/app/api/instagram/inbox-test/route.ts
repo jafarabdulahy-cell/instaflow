@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
+import { buildAutoReplyDecision } from "@/lib/auto-reply";
 import { clean, fetchFacebookJson, maskToken, sanitizeInstagramPayload } from "@/lib/instagram-api";
 import { resolveInstagramConnection } from "@/lib/instagram-connection";
 
@@ -224,7 +225,12 @@ export async function GET(req: NextRequest) {
     conversations.push({
       id,
       updated_time: clean(conversation.updated_time),
-      messages: messagesRes.ok && Array.isArray(messagesRes.data.data) ? messagesRes.data.data : [],
+      messages: messagesRes.ok && Array.isArray(messagesRes.data.data)
+        ? messagesRes.data.data.map((message) => ({
+            ...message,
+            autoReply: buildAutoReplyDecision({ text: clean(message.message), source: "instagram_dm" }),
+          }))
+        : [],
       messagesError: messagesRes.ok ? undefined : apiErrorMessage(messagesRes.data),
     });
   }

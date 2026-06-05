@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { autoReplySummary, buildAutoReplyDecision } from "@/lib/auto-reply";
 
 type ConnectedAccount = {
   id: string;
@@ -46,16 +47,22 @@ function sourceTag(source: AutoLeadSource) {
   return `[AutoLead:${source}]`;
 }
 
-function mergeNotes(notes: string | null | undefined, source: AutoLeadSource, text?: string | null) {
+function mergeNotes(notes: string | null | undefined, source: AutoLeadSource, text?: string | null, autoReplyLine?: string) {
   const current = clean(notes);
   const tag = sourceTag(source);
   const label = SOURCE_LABELS[source];
   const shortText = clean(text).slice(0, 140);
-  const line = `${tag} منبع خودکار: ${label}${shortText ? ` | آخرین تعامل: ${shortText}` : ""}`;
+  const leadLine = `${tag} منبع خودکار: ${label}${shortText ? ` | آخرین تعامل: ${shortText}` : ""}`;
+  const replyLine = clean(autoReplyLine);
+  const lines = [leadLine, replyLine].filter(Boolean);
 
-  if (!current) return line;
-  if (current.includes(tag)) return current;
-  return `${current}\n${line}`.slice(0, 1200);
+  if (!current) return lines.join("\n").slice(0, 1200);
+
+  const nextLines = [...lines];
+  if (current.includes(tag)) nextLines.shift();
+  if (replyLine && current.includes(replyLine)) nextLines.pop();
+  if (!nextLines.length) return current;
+  return `${current}\n${nextLines.join("\n")}`.slice(0, 1200);
 }
 
 function nextStatus(status?: string | null) {
@@ -81,6 +88,8 @@ export async function captureAutoLead(input: CaptureAutoLeadInput) {
   const displayName = clean(input.displayName) || username;
   const text = clean(input.text) || "تعامل جدید اینستاگرام";
   const scoreDelta = SOURCE_SCORES[input.source] || 8;
+  const autoReply = buildAutoReplyDecision({ text, source: input.source });
+  const autoReplyLine = autoReplySummary(autoReply);
   const now = new Date();
 
   const existingContact = await prisma.contact.findUnique({
@@ -99,7 +108,7 @@ export async function captureAutoLead(input: CaptureAutoLeadInput) {
           username: username || existingContact.username,
           name: displayName || existingContact.name,
           status: nextStatus(existingContact.status),
-          notes: mergeNotes(existingContact.notes, input.source, text),
+          notes: mergeNotes(existingContact.notes, input.source, text, autoReplyLine),
           leadScore: Math.min(100, (existingContact.leadScore || 0) + scoreDelta),
           lastContactAt: now,
         },
@@ -113,7 +122,7 @@ export async function captureAutoLead(input: CaptureAutoLeadInput) {
           name: displayName,
           status: "lead",
           leadScore: Math.min(100, scoreDelta),
-          notes: mergeNotes(null, input.source, text),
+          notes: mergeNotes(null, input.source, text, autoReplyLine),
           firstContactAt: now,
           lastContactAt: now,
         },
@@ -174,7 +183,7 @@ export async function captureAutoLead(input: CaptureAutoLeadInput) {
       direction: "inbound",
       senderId: instagramUserId,
       text,
-      rawPayload: toInputJson({ source: input.source, payload: input.rawPayload }),
+      rawPayload: toInputJson({ source: input.source, autoReply, payload: input.rawPayload }),
     },
   });
 
