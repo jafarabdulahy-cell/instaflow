@@ -39,6 +39,8 @@ type Diagnostics = {
   profile?: { id?: string; username?: string; name?: string; profile_picture_url?: string } | null;
   configuredInstagramId?: string;
   resolvedInstagramId?: string;
+  mode?: "page_token" | "instagram_login";
+  pageId?: string;
   idMismatch?: boolean;
   conversations?: Array<{ id: string; updated_time?: string }>;
   tests?: ApiTest[];
@@ -52,12 +54,16 @@ type SettingsResponse = {
   source?: "database" | "server_env" | null;
   account?: {
     instagramId: string;
+    pageId?: string | null;
+    mode?: "page_token" | "instagram_login";
     configuredInstagramId?: string;
     resolvedInstagramId?: string;
     idMismatch?: boolean;
     username?: string | null;
     name?: string | null;
     tokenPreview?: string;
+    pageTokenPreview?: string | null;
+    tokenType?: "page_access_token" | "instagram_access_token";
     webhookStatus?: string;
     connectedAt?: string;
     tokenStorage?: "database" | "server_env";
@@ -106,8 +112,9 @@ export default function ConnectPage() {
   const canTest = Boolean(instagramId.trim() && (accessToken.trim() || hasSavedToken));
 
   const headline = useMemo(() => {
-    if (diagnostics?.ok && diagnostics.conversations?.length) return "دایرکت‌ها از API دریافت شدند";
-    if (diagnostics?.ok) return "اتصال برقرار است؛ فعلاً data خالی است";
+    if (diagnostics?.ok && diagnostics.conversations?.length) return "دایرکت‌ها با Page Token دریافت شدند";
+    if (diagnostics?.ok) return "اتصال Page Token برقرار است";
+    if (serverTokenActive && settings?.account?.mode === "page_token") return "Page Token مخفی سرور فعال است";
     if (serverTokenActive) return "توکن مخفی سرور فعال است";
     if (settings?.configured) return "اتصال ذخیره شده؛ آماده تست";
     return "اتصال Instagram API";
@@ -140,7 +147,7 @@ export default function ConnectPage() {
     }
 
     if (!accessToken.trim() && !hasSavedToken) {
-      setMessage("Access Token را وارد کنید.");
+      setMessage("Access Token یا Page Token را وارد کنید.");
       return;
     }
 
@@ -222,7 +229,7 @@ export default function ConnectPage() {
                 <ShieldCheck className="h-3.5 w-3.5" /> Instagram API
               </p>
               <h1 className="mt-2 text-[25px] font-black leading-tight">{headline}</h1>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">اتصال رسمی شانشین به Meta، تست توکن و آماده‌سازی دریافت دایرکت</p>
+              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">اتصال رسمی Meta با Page Token، تست Inbox و آماده‌سازی Review</p>
             </div>
           </div>
 
@@ -252,7 +259,7 @@ export default function ConnectPage() {
             </div>
             <div className="text-right">
               <p className="text-[15px] font-black">تنظیم اتصال رسمی</p>
-              <p className="text-[11px] font-bold text-[#7C748E]">توکن مخفی می‌ماند و لازم نیست هر بار وارد شود</p>
+              <p className="text-[11px] font-bold text-[#7C748E]">برای دایرکت واقعی، Page Access Token روی سرور مخفی می‌ماند</p>
             </div>
           </div>
 
@@ -260,21 +267,21 @@ export default function ConnectPage() {
           <Input dir="ltr" value={instagramId} onChange={(e) => setInstagramId(e.target.value)} className="h-11 rounded-2xl border-[#ECE8F6] bg-[#FAF9FF] text-left text-[13px] font-bold" />
           {settings?.account?.idMismatch && (
             <div className="mt-2 rounded-2xl bg-amber-50 p-2 text-right text-[10px] font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
-              ID ذخیره‌شده/واقعی با ID تنظیم‌شده سرور فرق دارد؛ v10 برای Sync از ID واقعی استفاده می‌کند.
+              ID ذخیره‌شده/واقعی با ID تنظیم‌شده سرور فرق دارد؛ برنامه برای تشخیص اکانت از ID معتبر API استفاده می‌کند.
               <div className="mt-1 text-left" dir="ltr">Configured: {settings.account.configuredInstagramId}</div>
               <div className="text-left" dir="ltr">Resolved: {settings.account.resolvedInstagramId}</div>
             </div>
           )}
 
           <div className="mt-3 flex items-center justify-between">
-            {hasSavedToken && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">{serverTokenActive ? "مخفی روی سرور" : "ذخیره شده"}: {settings?.account?.tokenPreview}</span>}
+            {hasSavedToken && <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">{serverTokenActive ? (settings?.account?.tokenType === "page_access_token" ? "Page Token سرور" : "مخفی روی سرور") : "ذخیره شده"}: {settings?.account?.tokenPreview}</span>}
             <label className="block text-right text-[11px] font-black text-[#6D6780]">Access Token</label>
           </div>
 
           {hasSavedToken && !shouldShowTokenEditor ? (
             <div className="mt-1 rounded-[22px] bg-emerald-50 p-3 text-right ring-1 ring-emerald-100">
               <p className="text-[12px] font-black text-emerald-800">توکن فعال است و در فرم نمایش داده نمی‌شود.</p>
-              <p className="mt-1 text-[11px] font-bold leading-5 text-emerald-700">{serverTokenActive ? "توکن از Environment Variables سرور خوانده می‌شود؛ لازم نیست هر بار وارد کنی." : "توکن قبلاً ذخیره شده؛ فقط اگر منقضی شد یا عوضش کردی، توکن جدید را وارد کن."}</p>
+              <p className="mt-1 text-[11px] font-bold leading-5 text-emerald-700">{serverTokenActive ? "توکن از Environment Variables سرور خوانده می‌شود؛ لازم نیست هر بار وارد کنی. برای Inbox واقعی مقدار META_PAGE_ACCESS_TOKEN مبناست." : "توکن قبلاً ذخیره شده؛ فقط اگر منقضی شد یا عوضش کردی، توکن جدید را وارد کن."}</p>
               <button type="button" onClick={() => setShowTokenEditor(true)} className="mt-2 rounded-2xl bg-white px-3 py-2 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">تعویض توکن</button>
             </div>
           ) : (
@@ -315,7 +322,7 @@ export default function ConnectPage() {
               <span className={`rounded-full px-3 py-1 text-[11px] font-black ring-1 ${statusClass(diagnostics.ok)}`}>{okText(diagnostics.ok)}</span>
               <div className="text-right">
                 <p className="text-[15px] font-black">نتیجه تست اتصال</p>
-                <p className="text-[11px] font-bold text-[#7C748E]">مشکل data خالی هم بررسی می‌شود</p>
+                <p className="text-[11px] font-bold text-[#7C748E]">مسیر Page Token و پیام‌های دایرکت بررسی می‌شود</p>
               </div>
             </div>
 
@@ -323,6 +330,8 @@ export default function ConnectPage() {
               <div className="mb-3 rounded-[22px] bg-[#FAF9FF] p-3 text-right ring-1 ring-[#ECE8F6]">
                 <p className="text-[13px] font-black">@{diagnostics.profile.username || "instagram"}</p>
                 <p className="mt-1 text-[11px] font-bold text-[#7C748E]" dir="ltr">Resolved ID: {diagnostics.resolvedInstagramId || diagnostics.profile.id || instagramId}</p>
+                {diagnostics.pageId && <p className="mt-1 text-[11px] font-bold text-[#7C748E]" dir="ltr">PAGE_ID: {diagnostics.pageId}</p>}
+                {diagnostics.mode && <p className="mt-1 text-[11px] font-black text-[#5B2BE2]">Mode: {diagnostics.mode === "page_token" ? "Page Token / Facebook Graph" : "Instagram Login"}</p>}
                 {diagnostics.idMismatch && (
                   <div className="mt-2 rounded-2xl bg-amber-50 p-2 text-[10px] font-bold leading-5 text-amber-800 ring-1 ring-amber-100">
                     ID تنظیم‌شده با ID برگشتی API فرق دارد. برنامه از این نسخه گفتگوها را با ID واقعی API هم تست می‌کند.
@@ -380,10 +389,10 @@ export default function ConnectPage() {
 
         <section className="rounded-[26px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">مسیر مستقل شانشین</span>
+            <span className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">مسیر درست Page Token</span>
             <div>
               <p className="text-[15px] font-black text-[#24123F]">آماده‌سازی App Review</p>
-              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">تمرکز این مسیر فقط روی اتصال رسمی Meta API و اپ مستقل ShanshinDM است.</p>
+              <p className="mt-1 text-[11px] font-bold text-[#7C748E]">دایرکت‌ها با graph.facebook.com و Page Access Token خوانده می‌شوند.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -391,13 +400,13 @@ export default function ConnectPage() {
             <Link href="/dashboard/inbox" className="rounded-[22px] bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8] active:scale-95">اینباکس مستقل</Link>
           </div>
           <div className="mt-2 rounded-[22px] bg-blue-50 p-3 text-[11px] font-bold leading-6 text-blue-900 ring-1 ring-blue-100">
-            قدم بعدی پروژه: تنظیم Webhook رسمی در Meta Dashboard، ضبط ویدئوی تست، و ارسال Permissionها برای App Review. تا قبل از تأیید، خالی بودن data خطای برنامه نیست؛ یک وضعیت قابل تشخیص در پنل است.
+            قدم بعدی پروژه: ذخیره META_PAGE_ID و META_PAGE_ACCESS_TOKEN در Railway، تنظیم Webhook رسمی، ضبط ویدئوی تست، و ارسال instagram_manage_messages برای App Review.
           </div>
         </section>
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="font-black text-[#24123F]">توضیح مشکل دوم</p>
-          <p className="mt-1">اگر تست‌ها موفق باشند ولی data خالی بماند، برنامه خطا نمی‌دهد؛ یعنی اتصال برقرار است اما Meta به‌خاطر حالت تست/Development یا نبود گفتگوی مجاز، هنوز پیام واقعی برنمی‌گرداند. این صفحه چند endpoint و paging.next را همزمان تست می‌کند تا عیب‌یابی دقیق‌تر شود.</p>
+          <p className="mt-1">اگر Page Token درست باشد، برنامه لیست گفتگوها و چند پیام آخر هر گفتگو را نشان می‌دهد. اگر Meta خطای Timeout/Advanced Access بدهد، یعنی مسیر فنی درست است ولی برای دایرکت‌های زیاد باید App Review کامل شود.</p>
         </section>
 
         <nav className="fixed bottom-3 left-1/2 z-20 h-[66px] w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] backdrop-blur-xl">

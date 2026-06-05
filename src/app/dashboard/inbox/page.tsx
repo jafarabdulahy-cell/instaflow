@@ -10,7 +10,20 @@ type Diagnostics = {
   configuredInstagramId?: string;
   resolvedInstagramId?: string;
   idMismatch?: boolean;
-  conversations?: Array<{ id: string; updated_time?: string; participants?: unknown }>;
+  mode?: "page_token" | "instagram_login";
+  pageId?: string;
+  conversations?: Array<{
+    id: string;
+    updated_time?: string;
+    participants?: unknown;
+    messages?: Array<{
+      id: string;
+      message?: string;
+      from?: { id?: string; username?: string; name?: string };
+      to?: { data?: Array<{ id?: string; username?: string; name?: string }> };
+      created_time?: string;
+    }>;
+  }>;
   emptyReason?: string;
   error?: string;
 };
@@ -34,7 +47,7 @@ export default function InboxPage() {
   const title = useMemo(() => {
     if (conversations.length) return "دایرکت‌های Instagram";
     if (diagnostics?.ok) return "اینباکس آماده است؛ فعلاً پیام برنگشته";
-    return "اینباکس مستقل شانشین";
+    return "اینباکس رسمی Meta";
   }, [conversations.length, diagnostics?.ok]);
 
   async function loadInbox() {
@@ -89,7 +102,7 @@ export default function InboxPage() {
                 <MessageCircle className="h-3.5 w-3.5" /> Instagram Inbox
               </p>
               <h1 className="mt-2 text-[25px] font-black leading-tight">{title}</h1>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">این صفحه مسیر مستقل و رسمی Meta API شانشین را نشان می‌دهد.</p>
+              <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">دایرکت‌ها از مسیر صحیح Page Token خوانده می‌شوند.</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -138,6 +151,22 @@ export default function InboxPage() {
                   <p className="text-[12px] font-black text-[#24123F]" dir="ltr">{item.id}</p>
                 </div>
                 <p className="mt-2 text-[11px] font-bold text-[#6D6780]">آخرین بروزرسانی: {formatDate(item.updated_time)}</p>
+                {item.messages?.length ? (
+                  <div className="mt-3 space-y-2">
+                    {item.messages.slice(0, 5).map((msg) => {
+                      const incoming = msg.from?.id !== diagnostics?.profile?.id && msg.from?.username !== diagnostics?.profile?.username;
+                      return (
+                        <div key={msg.id} className={`rounded-2xl p-2 text-[11px] font-bold leading-5 ring-1 ${incoming ? "bg-[#F4F0FF] text-[#24123F] ring-[#E6DCF8]" : "bg-emerald-50 text-emerald-900 ring-emerald-100"}`}>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-[#8A8498]">{formatDate(msg.created_time)}</span>
+                            <span dir="ltr" className="text-[10px] font-black">@{msg.from?.username || "user"}</span>
+                          </div>
+                          <p>{msg.message || "پیام بدون متن / مدیا"}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             ))}
           </section>
@@ -145,7 +174,7 @@ export default function InboxPage() {
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="flex items-center justify-end gap-2 font-black text-[#24123F]"><ShieldCheck className="h-4 w-4 text-[#5B2BE2]" /> مسیر بعدی</p>
-          <p className="mt-1">برای واقعی شدن دریافت پیام‌ها باید App Review/Advanced Access و Webhook رسمی کامل شود. این Inbox برای همان مسیر آماده شده است.</p>
+          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. برای استفاده عمومی با اکانت‌های زیاد، App Review و Advanced Access لازم است.</p>
         </section>
       </main>
     </div>

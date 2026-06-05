@@ -6,17 +6,17 @@ const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.RAILWAY_PUBLIC_DO
 const checklist = [
   {
     title: "کاربرد اصلی برنامه",
-    body: "Instaflow برای مدیریت دایرکت‌های Instagram اکانت حرفه‌ای shanshin.rest، ساخت لید، پیگیری مشتری و پاسخ‌گویی دستی/هوشمند استفاده می‌شود.",
+    body: "Instaflow یک پنل جهانی برای اکانت‌های Instagram Professional است. در تست فعلی، shanshin.rest به عنوان اکانت پایلوت برای نمایش خواندن دایرکت، ساخت لید و پیگیری مشتری استفاده می‌شود.",
     done: true,
   },
   {
     title: "اتصال رسمی Meta API",
-    body: "Instagram ID و Access Token از Environment Variables سرور خوانده می‌شود؛ توکن در فرم و Debug عمومی نمایش داده نمی‌شود.",
+    body: "Page ID و Page Access Token از Environment Variables سرور خوانده می‌شود؛ توکن در فرم و Debug عمومی نمایش داده نمی‌شود. مسیر اصلی Inbox با graph.facebook.com/{PAGE_ID}/conversations?platform=instagram است.",
     done: true,
   },
   {
     title: "اینباکس مستقل قابل نمایش برای Reviewer",
-    body: "صفحه Inbox وضعیت اتصال، empty state، و مسیر تبدیل دایرکت به Lead را نشان می‌دهد؛ حتی اگر Development هنوز پیام واقعی برنگرداند.",
+    body: "صفحه Inbox وضعیت اتصال Page Token، لیست گفتگوها، چند پیام آخر هر گفتگو و مسیر تبدیل دایرکت به Lead را نشان می‌دهد.",
     done: true,
   },
   {
@@ -42,11 +42,11 @@ const checklist = [
 ];
 
 const permissions = [
-  "instagram_business_basic",
-  "instagram_business_manage_messages",
-  "instagram_business_manage_comments",
-  "instagram_business_content_publish",
-  "instagram_business_manage_insights",
+  "instagram_manage_messages",
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_metadata",
+  "business_management",
 ];
 
 export default function ReviewPage() {
@@ -61,8 +61,8 @@ export default function ReviewPage() {
           <p className="mt-4 inline-flex items-center gap-1 rounded-full bg-white/12 px-3 py-1 text-[11px] font-black text-white/82">
             <ShieldCheck className="h-3.5 w-3.5" /> Meta Review مسیر مستقل
           </p>
-          <h1 className="mt-2 text-[25px] font-black leading-tight">چک‌لیست تأیید رسمی ShanshinDM</h1>
-          <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">هدف این صفحه آماده‌سازی اپ مستقل شانشین برای App Review و دریافت دسترسی واقعی دایرکت‌هاست.</p>
+          <h1 className="mt-2 text-[25px] font-black leading-tight">چک‌لیست تأیید رسمی Instaflow</h1>
+          <p className="mt-2 text-[12px] font-bold leading-6 text-white/70">هدف این صفحه آماده‌سازی اپ جهانی Instaflow برای App Review و دریافت دسترسی واقعی دایرکت‌هاست. شانشین فقط اکانت پایلوت تست است.</p>
         </header>
 
         <section className="rounded-[28px] bg-white p-3 shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
@@ -96,7 +96,7 @@ export default function ReviewPage() {
               <div key={permission} dir="ltr" className="rounded-2xl bg-[#FAF9FF] px-3 py-2 text-left text-[11px] font-black text-[#24123F] ring-1 ring-[#ECE8F6]">{permission}</div>
             ))}
           </div>
-          <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-[11px] font-bold leading-6 text-blue-900 ring-1 ring-blue-100">برای دایرکت، مهم‌ترین مورد permission پیام‌هاست. بقیه permissionها فقط اگر واقعاً در سناریوی برنامه لازم باشند باید ارسال شوند.</p>
+          <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-[11px] font-bold leading-6 text-blue-900 ring-1 ring-blue-100">برای دایرکت، مهم‌ترین مورد instagram_manage_messages است. Permissionهای انتشار محتوا و مدیریت کامنت را فقط زمانی اضافه کن که واقعاً داخل محصول و ویدئو نشان داده شوند.</p>
         </section>
 
         <section className="space-y-2">
@@ -118,10 +118,10 @@ export default function ReviewPage() {
         <section className="rounded-[28px] bg-[#17112A] p-4 text-right text-white shadow-[0_18px_40px_rgba(42,16,90,0.18)]">
           <p className="flex items-center justify-end gap-2 text-[15px] font-black"><Video className="h-5 w-5 text-[#FFD66B]" /> سناریوی ویدئوی Review</p>
           <ol className="mt-3 list-decimal space-y-2 pr-5 text-[11px] font-bold leading-6 text-white/75">
-            <li>نمایش صفحه /connect و موفق بودن تست پروفایل shanshin.rest.</li>
-            <li>نمایش تشخیص ID واقعی API و توضیح اینکه برنامه با همان ID تست می‌کند.</li>
-            <li>نمایش /dashboard/inbox و توضیح empty state در Development.</li>
-            <li>توضیح اینکه دایرکت‌های Instagram برای ساخت Lead و پاسخ‌گویی مشتریان رستوران استفاده می‌شود.</li>
+            <li>نمایش صفحه /connect و موفق بودن تست Page Token برای PAGE_ID=812762118592536 و Instagram=shanshin.rest.</li>
+            <li>نمایش اینکه برنامه با graph.facebook.com و Page Access Token گفتگوهای Instagram را می‌خواند.</li>
+            <li>نمایش /dashboard/inbox، لیست گفتگوها و چند پیام آخر گفتگو.</li>
+            <li>توضیح اینکه دایرکت‌های Instagram برای ساخت Lead، پیگیری فروش/رزرو/پشتیبانی و پاسخ‌گویی کسب‌وکارها استفاده می‌شود.</li>
             <li>نمایش Privacy، Terms و Data Deletion.</li>
             <li>نمایش Callback URL و Verify Token برای Webhook.</li>
           </ol>
@@ -130,7 +130,7 @@ export default function ReviewPage() {
         <section className="rounded-[28px] bg-white p-4 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="flex items-center justify-end gap-2 text-[15px] font-black text-[#24123F]"><MessageCircle className="h-5 w-5 text-[#5B2BE2]" /> متن توضیح کوتاه برای Reviewer</p>
           <p className="mt-2 rounded-2xl bg-[#FAF9FF] p-3 text-[11px] font-bold leading-7 text-[#6D6780] ring-1 ring-[#ECE8F6]">
-            Instaflow helps Shanshin restaurant manage Instagram professional account messages, convert customer DMs into leads, and support manual/assisted replies from an internal dashboard. We request messaging access only to read customer conversations, create follow-up leads, and help staff respond to reservation, menu, event, and customer-service inquiries.
+            Instaflow is a SaaS dashboard for Instagram Professional accounts. It helps businesses connect their Instagram inbox, read and manage direct messages, convert customer DMs into leads, and support manual or assisted follow-up from a private dashboard. We request instagram_manage_messages only to read customer conversations, create follow-up leads, and help business staff respond to support, reservation, order, sales, and customer-service inquiries. The shanshin.rest account is used as our pilot account for the App Review demonstration.
           </p>
         </section>
       </main>

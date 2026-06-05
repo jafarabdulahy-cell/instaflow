@@ -21,16 +21,20 @@ export async function GET(req: NextRequest) {
     account: {
       id: account?.id || "server-env",
       instagramId: account?.instagramId || connection.instagramId,
+      pageId: connection.pageId || null,
+      mode: connection.mode,
       configuredInstagramId: connection.instagramId,
       resolvedInstagramId: account?.instagramId || connection.instagramId,
       idMismatch: Boolean(account?.instagramId && account.instagramId !== connection.instagramId),
       username: account?.username || connection.username,
       name: account?.name || connection.name,
       tokenPreview: connection.tokenPreview,
+      pageTokenPreview: connection.pageTokenPreview || null,
       webhookStatus: account?.webhookStatus || "server_env",
       connectedAt: account?.connectedAt || null,
       isActive: account?.isActive ?? true,
       tokenStorage: connection.source === "server_env" ? "server_env" : "database",
+      tokenType: connection.mode === "page_token" ? "page_access_token" : "instagram_access_token",
     },
   });
 }

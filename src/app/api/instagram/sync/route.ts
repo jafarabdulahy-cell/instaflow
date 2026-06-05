@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { captureAutoLead } from "@/lib/auto-lead";
-import { clean, fetchConversations, fetchInstagramJson } from "@/lib/instagram-api";
+import { clean, fetchConversations, fetchConversationMessages, fetchInstagramJson } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -17,7 +17,16 @@ function firstString(...values: unknown[]) {
 }
 
 
-async function fetchMessages(conversationId: string, accessToken: string) {
+async function fetchMessages(conversationId: string, accessToken: string, graph: "instagram" | "facebook" = "instagram") {
+  if (graph === "facebook") {
+    try {
+      const direct = await fetchConversationMessages(conversationId, accessToken, { graph: "facebook" });
+      return Array.isArray(direct.data) ? (direct.data as Record<string, unknown>[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
   // بعضی نسخه‌های Graph پیام‌ها را از /messages می‌دهند و بعضی از fields=messages. هر دو مسیر تست می‌شود.
   const direct = await fetchInstagramJson<{ data?: Record<string, unknown>[]; error?: unknown }>(
     `${conversationId}/messages?fields=id,from,to,message,created_time&limit=25`,
@@ -54,9 +63,17 @@ export async function POST(req: NextRequest) {
   let checkedMessages = 0;
   const debug: Array<Record<string, unknown>> = [];
 
+  const usePageToken = connection.mode === "page_token" && Boolean(connection.pageId);
   const conversations = await fetchConversations(
-    { instagramId: account.instagramId, accessToken: account.accessToken },
-    `${account.instagramId}/conversations?fields=id,participants,updated_time&limit=25`
+    {
+      instagramId: account.instagramId,
+      accessToken: connection.accessToken,
+      pageId: connection.pageId || "",
+      pageAccessToken: connection.pageAccessToken || connection.accessToken,
+    },
+    usePageToken
+      ? `${connection.pageId}/conversations?platform=instagram&fields=id,updated_time&limit=25`
+      : `${account.instagramId}/conversations?fields=id,participants,updated_time&limit=25`
   );
 
   const conversationList = Array.isArray(conversations.data) ? conversations.data : [];
@@ -64,7 +81,7 @@ export async function POST(req: NextRequest) {
   for (const conversation of conversationList.slice(0, 25)) {
     if (!conversation.id) continue;
     checkedConversations += 1;
-    const messages = await fetchMessages(conversation.id, account.accessToken);
+    const messages = await fetchMessages(conversation.id, connection.accessToken, usePageToken ? "facebook" : "instagram");
     checkedMessages += messages.length;
 
     for (const message of messages) {

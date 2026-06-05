@@ -7,11 +7,20 @@ async function resolveInput(req: NextRequest, workspaceId: string) {
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const instagramId = clean(body.instagramId);
   const accessToken = clean(body.accessToken);
-  if (instagramId && accessToken) return { instagramId, accessToken, source: "body" as const };
+  const pageId = clean(body.pageId);
+  const pageAccessToken = clean(body.pageAccessToken);
+  if (instagramId && accessToken) return { instagramId, accessToken, pageId, pageAccessToken, source: "body" as const };
 
   const connection = await resolveInstagramConnection(workspaceId);
   if (!connection?.instagramId || !connection?.accessToken) return null;
-  return { instagramId: connection.instagramId, accessToken: connection.accessToken, source: connection.source === "server_env" ? "server_env" as const : "saved" as const };
+  return {
+    instagramId: connection.instagramId,
+    accessToken: connection.accessToken,
+    pageId: connection.pageId || "",
+    pageAccessToken: connection.pageAccessToken || connection.accessToken,
+    source: connection.source === "server_env" ? "server_env" as const : "saved" as const,
+    mode: connection.mode,
+  };
 }
 
 export async function GET(req: NextRequest) {
