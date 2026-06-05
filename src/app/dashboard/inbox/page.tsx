@@ -91,23 +91,27 @@ export default function InboxPage() {
   const conversations = diagnostics?.conversations || [];
 
   const title = useMemo(() => {
-    if (conversations.length) return "دایرکت‌های Instagram";
+    if (conversations.length) return "دایرکت تستی Instagram";
+    if (loading) return "در حال خواندن دایرکت…";
     if (diagnostics?.ok) return "اینباکس آماده است؛ فعلاً پیام برنگشته";
     return "اینباکس رسمی Meta";
-  }, [conversations.length, diagnostics?.ok]);
+  }, [conversations.length, diagnostics?.ok, loading]);
 
   async function loadInbox() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/instagram/diagnostics", { cache: "no-store" });
+      const res = await fetch("/api/instagram/inbox-test", { cache: "no-store" });
       const json = await res.json();
       if (res.status === 401) {
         location.assign("/auth/login");
         return;
       }
-      if (!res.ok) throw new Error(json.error || "خواندن وضعیت اینباکس ناموفق بود.");
+      if (!res.ok && !json) throw new Error("خواندن وضعیت اینباکس ناموفق بود.");
       setDiagnostics(json);
+      if (json?.error) {
+        setMessage(json.advancedAccessNeeded ? `${json.error} — اتصال درست است، اما برای خواندن همه دایرکت‌ها Advanced Access لازم است.` : json.error);
+      }
     } catch (error) {
       setMessage((error as Error).message || "خطا در خواندن اینباکس.");
     } finally {
@@ -162,10 +166,24 @@ export default function InboxPage() {
           <button onClick={loadInbox} disabled={loading} className="h-12 rounded-[22px] bg-white text-[12px] font-black text-[#5B2BE2] shadow-[0_12px_26px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6] disabled:opacity-50">
             {loading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : <><RefreshCcw className="ml-1 inline h-4 w-4" /> تازه‌سازی</>}
           </button>
-          <button onClick={syncDirects} disabled={syncing || !diagnostics?.ok} className="h-12 rounded-[22px] bg-[#17112A] text-[12px] font-black text-white shadow-[0_12px_26px_rgba(42,16,90,0.12)] disabled:opacity-50">
+          <button onClick={syncDirects} disabled={syncing || !diagnostics?.ok || !conversations.length} className="h-12 rounded-[22px] bg-[#17112A] text-[12px] font-black text-white shadow-[0_12px_26px_rgba(42,16,90,0.12)] disabled:opacity-50">
             {syncing ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sync تستی یک گفتگو"}
           </button>
         </section>
+
+
+        {loading && (
+          <section className="rounded-[24px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#5B2BE2] shadow-[0_14px_34px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6]">
+            <Loader2 className="ml-2 inline h-4 w-4 animate-spin" />
+            در حال خواندن آخرین گفتگوی تستی از مسیر Page Token...
+          </section>
+        )}
+
+        {!loading && !diagnostics && !message && (
+          <section className="rounded-[24px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6]">
+            برای تست سبک اینباکس، دکمه تازه‌سازی را بزن. برنامه فقط آخرین گفتگو را با limit=1 می‌خواند.
+          </section>
+        )}
 
         {message && <section className="rounded-[24px] bg-blue-50 p-3 text-right text-[12px] font-bold leading-6 text-blue-900 ring-1 ring-blue-100">{message}</section>}
 
