@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Copy, Edit3, FileText, Image as ImageIcon, Link2, Loader2, Plus, RefreshCcw, Search, ToggleLeft, Video, Volume2, Zap } from "lucide-react";
+import { ArrowRight, Copy, Edit3, FileText, Home, Image as ImageIcon, Link2, Loader2, MessageCircle, Plus, RefreshCcw, Search, ToggleLeft, UsersRound, Video, Volume2, Zap } from "lucide-react";
 
 type Rule = {
   id: string;
@@ -176,11 +176,12 @@ export default function AutomationRulesPage() {
         </section>
       </main>
       <nav className="fixed bottom-0 left-0 right-0 z-30 mx-auto max-w-[430px] rounded-t-[26px] bg-white/96 px-4 py-3 shadow-[0_-18px_36px_rgba(42,16,90,0.09)] ring-1 ring-[#ECE8F6] backdrop-blur">
-        <div className="grid grid-cols-4 text-center text-[11px] font-black text-[#6D6780]">
-          <Link className="text-[#5B2BE2]" href="/dashboard/automation/rules">قوانین</Link>
-          <Link href="/dashboard/inbox">اینباکس</Link>
-          <Link href="/dashboard/leads">مخاطبین</Link>
-          <Link href="/connect">اتصال</Link>
+        <div className="grid h-full grid-cols-5 gap-1 text-center text-[9px] font-black text-[#6D6780]">
+          <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-2xl"><Home className="h-5 w-5" /><span className="mt-1">خانه</span></Link>
+          <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-2xl"><MessageCircle className="h-5 w-5" /><span className="mt-1">اینباکس</span></Link>
+          <Link className="flex flex-col items-center justify-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]" href="/dashboard/automation/rules"><Zap className="h-5 w-5" /><span className="mt-1">قوانین</span></Link>
+          <Link href="/dashboard/leads" className="flex flex-col items-center justify-center rounded-2xl"><UsersRound className="h-5 w-5" /><span className="mt-1">لیدها</span></Link>
+          <Link href="/connect" className="flex flex-col items-center justify-center rounded-2xl"><Link2 className="h-5 w-5" /><span className="mt-1">اتصال</span></Link>
         </div>
       </nav>
     </div>

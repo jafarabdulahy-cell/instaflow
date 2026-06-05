@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Loader2, MessageCircle, RefreshCcw, Send, ShieldCheck } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Home, Link2, Loader2, MessageCircle, RefreshCcw, Send, ShieldCheck, UsersRound } from "lucide-react";
 
 type AutoReplyPreview = {
   shouldReply: boolean;
@@ -372,6 +372,15 @@ ${json.hint}` : base);
           <Link href="/dashboard/automation/rules" className="mt-3 block rounded-2xl bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">مدیریت قوانین دستی</Link>
         </section>
       </main>
+      <nav className="fixed bottom-3 left-1/2 z-20 h-[66px] w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] backdrop-blur-xl">
+        <div className="grid h-full grid-cols-5 gap-1">
+          <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><Home className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">خانه</span></Link>
+          <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]"><MessageCircle className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">اینباکس</span></Link>
+          <Link href="/dashboard/automation/rules" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><Bot className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">قوانین</span></Link>
+          <Link href="/dashboard/leads" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><UsersRound className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">لیدها</span></Link>
+          <Link href="/connect" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><Link2 className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">اتصال</span></Link>
+        </div>
+      </nav>
     </div>
   );
 }
