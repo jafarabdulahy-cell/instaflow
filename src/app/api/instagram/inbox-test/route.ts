@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
   }
 
   let effectivePageAccessToken = pageAccessToken;
-  let tokenSource = connection?.source || "server_env";
+  let tokenSource: string = connection?.source || "server_env";
   let tokenResolvedFromMeAccounts: unknown = null;
 
   let profileRes = await fetchFacebookJson<Record<string, unknown>>(
