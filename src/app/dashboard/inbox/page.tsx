@@ -281,7 +281,7 @@ ${json.hint}` : base);
               {lastAutoSyncAt && <p className="mt-0.5 text-[10px] text-emerald-800/70">آخرین بررسی: {lastAutoSyncAt}</p>}
             </div>
           </div>
-          <p className="mt-2 text-[10px] leading-5 text-emerald-800/80">برای تست بدون Webhook، این صفحه را باز نگه دار. برنامه هر ۲۰ ثانیه آخرین گفتگو را می‌خواند و اگر پیام جدید مثل «منو» باشد، پاسخ را خودکار در Instagram DM ارسال می‌کند.</p>
+          <p className="mt-2 text-[10px] leading-5 text-emerald-800/80">از v23 مدل اصلی پاسخ خودکار با Webhook است و نیازی به باز بودن اینباکس ندارد. این دکمه فقط برای تست اضطراری/دستی باقی مانده است؛ حالت واقعی از مسیر /api/webhook یا /api/meta/webhook اجرا می‌شود.</p>
         </section>
 
 
@@ -368,8 +368,8 @@ ${json.hint}` : base);
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="flex items-center justify-end gap-2 font-black text-[#24123F]"><ShieldCheck className="h-4 w-4 text-[#5B2BE2]" /> مسیر بعدی</p>
-          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v22 علاوه بر دکمه دستی، Auto Reply تستی فعال شده است: اگر این صفحه باز بماند یا Webhook متا تنظیم شود، پیام‌های کلیدی مثل «منو» به‌صورت خودکار پاسخ می‌گیرند.</p>
-          <Link href="/dashboard/automation" className="mt-3 block rounded-2xl bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">تست قانون‌های جواب خودکار</Link>
+          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v23 پاسخ واقعی باید از Webhook اجرا شود، نه باز بودن صفحه و نه تایمر. قوانین دستی را بساز و Callback را در Meta روی /api/webhook یا /api/meta/webhook تنظیم کن.</p>
+          <Link href="/dashboard/automation/rules" className="mt-3 block rounded-2xl bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">مدیریت قوانین دستی</Link>
         </section>
       </main>
     </div>

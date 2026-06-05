@@ -1,6 +1,9 @@
+import { buildRuleResponseText, findMatchingManualAutoReplyRule } from "@/lib/auto-reply-rules";
+
 export type AutoReplySource = "instagram_dm" | "instagram_comment" | "instagram_story_reply" | "instagram_interaction";
 
 export type AutoReplyCategory =
+  | "custom"
   | "menu"
   | "reservation"
   | "address"
@@ -272,6 +275,41 @@ export function buildAutoReplyDecision(input: { text?: string | null; source?: A
     reason: matched
       ? `پیام با قانون «${rule?.trigger}» تشخیص داده شد.`
       : "قانون مطمئن پیدا نشد؛ بهتر است انسان بررسی کند.",
+  };
+}
+
+export async function buildAutoReplyDecisionForWorkspace(input: {
+  workspaceId?: string | null;
+  text?: string | null;
+  source?: AutoReplySource | string | null;
+}): Promise<AutoReplyDecision> {
+  const workspaceId = clean(input.workspaceId);
+  if (!workspaceId) return buildAutoReplyDecision(input);
+
+  const source = (clean(input.source) || "instagram_dm") as AutoReplySource;
+  const mode = getAutoReplyMode();
+  const liveSendAllowed = isLiveAutoReplyAllowed();
+  const manualRule = await findMatchingManualAutoReplyRule(workspaceId, input.text);
+
+  if (!manualRule) return buildAutoReplyDecision(input);
+
+  const responseText = buildRuleResponseText(manualRule);
+  const action = sourceAction(source, true);
+  const shouldReply = mode !== "off" && Boolean(responseText);
+
+  return {
+    shouldReply,
+    mode,
+    liveSendAllowed,
+    category: "custom",
+    confidence: 98,
+    trigger: manualRule.triggers[0] || manualRule.name,
+    action,
+    responseText,
+    publicCommentReply: source === "instagram_comment" ? `سلام 🌹 ${manualRule.name} را در دایرکت ارسال کردیم.` : undefined,
+    privateReplyText: source === "instagram_comment" ? responseText : undefined,
+    needsHumanReview: !shouldReply || mode !== "live" || !liveSendAllowed,
+    reason: `پیام با قانون دستی «${manualRule.name}» تشخیص داده شد.`,
   };
 }
 

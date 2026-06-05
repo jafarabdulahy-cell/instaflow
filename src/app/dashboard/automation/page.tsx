@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Bot, CheckCircle2, Loader2, MessageCircle, ShieldAlert } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Loader2, MessageCircle, Plus, ShieldAlert, Zap } from "lucide-react";
 
 type Decision = {
   shouldReply: boolean;
@@ -20,31 +20,23 @@ type Decision = {
 };
 
 type Rule = {
-  category: string;
-  trigger: string;
-  keywords: string[];
-  dm: string;
-  comment?: string;
-  privateReply?: string;
-  confidence: number;
-  review: boolean;
+  id?: string;
+  name?: string;
+  trigger?: string;
+  triggers?: string[];
+  keywords?: string[];
+  category?: string;
+  responseText?: string;
+  dm?: string;
+  isActive?: boolean;
 };
 
-const categoryLabels: Record<string, string> = {
-  menu: "منو",
-  reservation: "رزرو",
-  address: "آدرس",
-  hours: "ساعت کاری",
-  price: "قیمت",
-  phone: "شماره تماس",
-  complaint: "شکایت",
-  thanks: "تشکر",
-  collaboration: "همکاری",
-  unknown: "نامشخص",
-};
+function label(rule: Rule) {
+  return rule.name || rule.trigger || rule.category || "قانون";
+}
 
-function label(value: string) {
-  return categoryLabels[value] || value;
+function keywords(rule: Rule) {
+  return (rule.triggers?.length ? rule.triggers : rule.keywords || []).join("، ");
 }
 
 export default function AutomationPage() {
@@ -55,17 +47,22 @@ export default function AutomationPage() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("preview");
   const [liveSendAllowed, setLiveSendAllowed] = useState(false);
+  const [sourceLabel, setSourceLabel] = useState("manual");
 
-  useEffect(() => {
-    fetch("/api/automation/rules")
-      .then((res) => res.json())
-      .then((json) => {
-        setRules(json.rules || []);
-        setMode(json.mode || "preview");
-        setLiveSendAllowed(Boolean(json.liveSendAllowed));
-      })
-      .catch(() => setRules([]));
-  }, []);
+  async function loadRules() {
+    const res = await fetch("/api/automation/rules", { cache: "no-store" });
+    if (res.status === 401) {
+      location.assign("/auth/login");
+      return;
+    }
+    const json = await res.json();
+    setRules(json.rules?.length ? json.rules : json.fallbackRules || []);
+    setMode(json.mode || "preview");
+    setLiveSendAllowed(Boolean(json.liveSendAllowed));
+    setSourceLabel(json.source || "manual");
+  }
+
+  useEffect(() => { void loadRules().catch(() => setRules([])); }, []);
 
   async function preview() {
     setLoading(true);
@@ -84,7 +81,7 @@ export default function AutomationPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#F4F0FF] text-[#17112A]">
+    <div dir="rtl" className="min-h-[100dvh] bg-[#F4F0FF] text-[#17112A]">
       <main className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col gap-3 px-4 pb-24 pt-3">
         <header className="rounded-[30px] bg-gradient-to-br from-[#24123F] via-[#5B2BE2] to-[#8E58FF] p-4 text-white shadow-[0_22px_60px_rgba(42,16,90,0.22)]">
           <div className="flex items-start justify-between gap-3">
@@ -93,10 +90,10 @@ export default function AutomationPage() {
             </Link>
             <div className="text-right">
               <p className="inline-flex items-center gap-1 rounded-full bg-white/12 px-3 py-1 text-[11px] font-black text-white/82">
-                <Bot className="h-3.5 w-3.5" /> Auto Reply Core
+                <Bot className="h-3.5 w-3.5" /> Webhook Live Rules
               </p>
-              <h1 className="mt-2 text-[27px] font-black leading-none">جواب خودکار دایرکت</h1>
-              <p className="mt-2 text-[12px] font-bold leading-6 text-white/72">فعلاً هسته کاربردی مهم است، نه ظاهر؛ حالت پیش‌فرض فقط پیشنهاد جواب است.</p>
+              <h1 className="mt-2 text-[25px] font-black leading-none">پاسخ خودکار اینستاگرام</h1>
+              <p className="mt-2 text-[12px] font-bold leading-6 text-white/72">قانون را دستی بساز؛ پیام که برسد، Webhook همان لحظه جواب می‌دهد.</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px] font-black">
@@ -104,6 +101,14 @@ export default function AutomationPage() {
             <div className="rounded-2xl bg-white/10 p-3 ring-1 ring-white/12">Live Send: {liveSendAllowed ? "فعال" : "خاموش"}</div>
           </div>
         </header>
+
+        <section className="rounded-[26px] bg-emerald-50 p-3 text-right text-[12px] font-bold leading-6 text-emerald-900 ring-1 ring-emerald-100">
+          <p className="flex items-center justify-end gap-2 font-black"><Zap className="h-4 w-4" /> مدل نهایی v23</p>
+          <p className="mt-1">پاسخ‌ها نباید به باز بودن اینباکس وابسته باشند. آدرس Webhook را در Meta ثبت کن تا پیام‌ها به‌صورت Live روی Railway پردازش شوند.</p>
+          <p dir="ltr" className="mt-2 break-all rounded-2xl bg-white p-2 text-left text-[10px] text-emerald-800 ring-1 ring-emerald-100">/api/webhook یا /api/meta/webhook</p>
+        </section>
+
+        <Link href="/dashboard/automation/rules" className="flex h-14 items-center justify-center gap-2 rounded-[22px] bg-gradient-to-l from-[#5B2BE2] to-[#B000B8] text-[14px] font-black text-white shadow-[0_18px_34px_rgba(91,43,226,0.22)]"><Plus className="h-5 w-5" /> مدیریت و افزودن قوانین دستی</Link>
 
         <section className="rounded-[28px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <div className="mb-2 flex items-center justify-between">
@@ -117,20 +122,12 @@ export default function AutomationPage() {
             placeholder="مثلاً: منو / امشب جا دارید؟ / آدرس کجاست؟"
           />
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="rounded-2xl border border-[#E6DCF8] bg-white p-3 text-right text-[12px] font-black outline-none"
-            >
+            <select value={source} onChange={(e) => setSource(e.target.value)} className="rounded-2xl border border-[#E6DCF8] bg-white p-3 text-right text-[12px] font-black outline-none">
               <option value="instagram_dm">دایرکت</option>
               <option value="instagram_comment">کامنت پست</option>
               <option value="instagram_story_reply">ریپلای استوری</option>
             </select>
-            <button
-              onClick={preview}
-              disabled={loading}
-              className="rounded-2xl bg-[#5B2BE2] p-3 text-[12px] font-black text-white disabled:opacity-60"
-            >
+            <button onClick={preview} disabled={loading} className="rounded-2xl bg-[#5B2BE2] p-3 text-[12px] font-black text-white disabled:opacity-60">
               {loading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "تشخیص و جواب"}
             </button>
           </div>
@@ -139,36 +136,31 @@ export default function AutomationPage() {
         {decision && (
           <section className="rounded-[28px] bg-white p-4 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
             <div className="flex items-center justify-between gap-2">
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">
-                {label(decision.category)} | {decision.confidence}%
-              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">{decision.trigger} | {decision.confidence}%</span>
               {decision.needsHumanReview ? <ShieldAlert className="h-5 w-5 text-amber-600" /> : <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
             </div>
             <p className="mt-2 text-[12px] font-bold leading-6 text-[#6D6780]">{decision.reason}</p>
             <p className="mt-1 text-[11px] font-black text-[#5B2BE2]">Action: {decision.action}</p>
-            {decision.publicCommentReply && (
-              <div className="mt-3 rounded-2xl bg-pink-50 p-3 text-[12px] font-bold leading-6 text-pink-900 ring-1 ring-pink-100">
-                <p className="font-black">جواب عمومی کامنت</p>
-                {decision.publicCommentReply}
-              </div>
-            )}
-            <div className="mt-3 rounded-2xl bg-[#FBFAFF] p-3 text-[13px] font-bold leading-7 text-[#24123F] ring-1 ring-[#ECE8F6]">
-              <p className="mb-1 text-[11px] font-black text-[#5B2BE2]">متن دایرکت / پاسخ پیشنهادی</p>
+            <div className="mt-3 whitespace-pre-line rounded-2xl bg-[#FBFAFF] p-3 text-[13px] font-bold leading-7 text-[#24123F] ring-1 ring-[#ECE8F6]">
+              <p className="mb-1 text-[11px] font-black text-[#5B2BE2]">متن پاسخ</p>
               {decision.privateReplyText || decision.responseText}
             </div>
           </section>
         )}
 
         <section className="rounded-[28px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
-          <p className="mb-3 text-[13px] font-black text-[#24123F]">قانون‌های آماده v20</p>
+          <div className="mb-3 flex items-center justify-between">
+            <span className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2]">{sourceLabel === "manual" ? "قوانین دستی" : "پیش‌فرض"}</span>
+            <p className="text-[13px] font-black text-[#24123F]">قانون‌های فعال</p>
+          </div>
           <div className="space-y-2">
-            {rules.map((rule) => (
-              <div key={rule.category} className="rounded-2xl bg-[#FBFAFF] p-3 ring-1 ring-[#ECE8F6]">
+            {rules.slice(0, 8).map((rule, index) => (
+              <div key={rule.id || rule.category || index} className="rounded-2xl bg-[#FBFAFF] p-3 ring-1 ring-[#ECE8F6]">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[12px] font-black text-[#24123F]">{label(rule.category)}</span>
-                  <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">{rule.trigger}</span>
+                  <span className="text-[12px] font-black text-[#24123F]">{label(rule)}</span>
+                  <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">{rule.isActive === false ? "خاموش" : "فعال"}</span>
                 </div>
-                <p className="mt-2 text-[11px] font-bold leading-6 text-[#6D6780]">{rule.keywords.slice(0, 8).join("، ")}</p>
+                <p className="mt-2 text-[11px] font-bold leading-6 text-[#6D6780]">{keywords(rule) || "بدون کلیدواژه"}</p>
               </div>
             ))}
           </div>

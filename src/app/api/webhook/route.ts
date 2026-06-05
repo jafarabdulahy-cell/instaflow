@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { captureAutoLead, type AutoLeadSource } from "@/lib/auto-lead";
-import { buildAutoReplyDecision } from "@/lib/auto-reply";
+import { buildAutoReplyDecisionForWorkspace } from "@/lib/auto-reply";
 import { replyToInstagramComment, sendInstagramPrivateReply, sendInstagramTextMessage } from "@/lib/instagram-api";
 
 const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || "";
@@ -145,7 +145,7 @@ async function maybeSendLiveDmReply(input: {
   conversationId?: string;
   rawPayload?: unknown;
 }) {
-  const decision = buildAutoReplyDecision({ text: input.text, source: "instagram_dm" });
+  const decision = await buildAutoReplyDecisionForWorkspace({ workspaceId: input.account.workspaceId, text: input.text, source: "instagram_dm" });
   if (!decision.shouldReply || decision.needsHumanReview || decision.mode !== "live" || !decision.liveSendAllowed) {
     return { sent: false, decision, reason: "preview_or_review" };
   }
@@ -171,7 +171,7 @@ async function maybeSendLiveCommentAutomation(input: {
   text: string;
   rawPayload?: unknown;
 }) {
-  const decision = buildAutoReplyDecision({ text: input.text, source: "instagram_comment" });
+  const decision = await buildAutoReplyDecisionForWorkspace({ workspaceId: input.account.workspaceId, text: input.text, source: "instagram_comment" });
   if (!decision.shouldReply || decision.needsHumanReview || decision.mode !== "live" || !decision.liveSendAllowed || !input.commentId) {
     return { sent: false, decision, reason: "preview_or_review" };
   }

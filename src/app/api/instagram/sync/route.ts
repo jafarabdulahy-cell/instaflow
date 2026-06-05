@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { captureAutoLead } from "@/lib/auto-lead";
-import { buildAutoReplyDecision, getAutoReplyMode, isLiveAutoReplyAllowed } from "@/lib/auto-reply";
+import { buildAutoReplyDecisionForWorkspace, getAutoReplyMode, isLiveAutoReplyAllowed } from "@/lib/auto-reply";
 import { clean, fetchConversations, fetchConversationMessages, fetchFacebookJson, fetchInstagramJson, sendInstagramTextMessage } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
         duplicates += 1;
       } else if (result) {
         imported += 1;
-        const decision = buildAutoReplyDecision({ text, source: "instagram_dm" });
+        const decision = await buildAutoReplyDecisionForWorkspace({ workspaceId: session.workspaceId, text, source: "instagram_dm" });
         if (decision.shouldReply && !decision.needsHumanReview && decision.mode === "live" && decision.liveSendAllowed) {
           try {
             const sendRes = await sendInstagramTextMessage({

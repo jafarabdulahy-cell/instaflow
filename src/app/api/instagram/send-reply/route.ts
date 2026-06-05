@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
-import { buildAutoReplyDecision } from "@/lib/auto-reply";
+import { buildAutoReplyDecisionForWorkspace } from "@/lib/auto-reply";
 import { clean, sanitizeInstagramPayload, sendInstagramTextMessage } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const account = await ensureInstagramAccountFromConnection(session.workspaceId, connection);
-  const decision = buildAutoReplyDecision({ text: sourceText || manualText, source: "instagram_dm" });
+  const decision = await buildAutoReplyDecisionForWorkspace({ workspaceId: session.workspaceId, text: sourceText || manualText, source: "instagram_dm" });
   const text = manualText || decision.responseText;
 
   if (!text) {
