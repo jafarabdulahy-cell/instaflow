@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { captureAutoLead } from "@/lib/auto-lead";
-import { clean, fetchConversations, fetchConversationMessages, fetchFacebookJson, fetchInstagramJson } from "@/lib/instagram-api";
+import { buildAutoReplyDecision } from "@/lib/auto-reply";
+import { clean, fetchConversations, fetchConversationMessages, fetchFacebookJson, fetchInstagramJson, sendInstagramTextMessage } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -101,6 +102,8 @@ export async function POST(req: NextRequest) {
   let checkedConversations = 0;
   let checkedMessages = 0;
   const debug: Array<Record<string, unknown>> = [];
+  let sentReplies = 0;
+  let skippedReplies = 0;
 
   const usePageToken = connection.mode === "page_token" && Boolean(connection.pageId);
   let effectivePageToken = connection.pageAccessToken || connection.accessToken;
@@ -169,8 +172,33 @@ export async function POST(req: NextRequest) {
         rawPayload: { conversation, message },
       });
 
-      if (result?.duplicated) duplicates += 1;
-      else if (result) imported += 1;
+      if (result?.duplicated) {
+        duplicates += 1;
+      } else if (result) {
+        imported += 1;
+        const decision = buildAutoReplyDecision({ text, source: "instagram_dm" });
+        if (decision.shouldReply && !decision.needsHumanReview && decision.mode === "live" && decision.liveSendAllowed) {
+          try {
+            const sendRes = await sendInstagramTextMessage({
+              pageId: connection.pageId || (account as { facebookPageId?: string | null }).facebookPageId || undefined,
+              instagramId: account.instagramId,
+              accessToken: usePageToken ? effectivePageToken : connection.accessToken,
+              recipientId: fromId,
+              text: decision.responseText,
+            });
+            if (sendRes.ok) sentReplies += 1;
+            else {
+              skippedReplies += 1;
+              debug.push({ type: "auto_reply_failed", status: sendRes.status, data: sendRes.data });
+            }
+          } catch (error) {
+            skippedReplies += 1;
+            debug.push({ type: "auto_reply_error", message: clean((error as Error).message) });
+          }
+        } else {
+          skippedReplies += 1;
+        }
+      }
     }
 
     if (messages.length) {
@@ -184,10 +212,12 @@ export async function POST(req: NextRequest) {
     checkedMessages,
     imported,
     duplicates,
+    sentReplies,
+    skippedReplies,
     empty: conversationList.length === 0,
     message: conversationList.length === 0
       ? "اتصال برقرار است اما Meta فعلاً گفتگویی برنگرداند."
-      : `Sync تستی انجام شد: ${checkedConversations} گفتگو بررسی شد و ${imported} پیام جدید به لید تبدیل شد.`,
+      : `Sync تستی انجام شد: ${checkedConversations} گفتگو بررسی شد، ${imported} پیام جدید به لید تبدیل شد و ${sentReplies} پاسخ به اینستاگرام ارسال شد.`,
     debug,
   });
 }

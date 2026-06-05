@@ -582,20 +582,24 @@ export async function postFacebookJson<T = Record<string, unknown>>(
 }
 
 export async function sendInstagramTextMessage(input: {
-  instagramId: string;
+  instagramId?: string;
+  pageId?: string;
   accessToken: string;
   recipientId: string;
   text: string;
 }) {
-  const instagramId = clean(input.instagramId);
+  // مسیر پروژه ما Page Token / Facebook Graph است، پس برای ارسال دایرکت هم
+  // اولویت با /{PAGE_ID}/messages است. اگر Page ID نبود، برای سازگاری
+  // با حالت Instagram Login از IG ID استفاده می‌کنیم.
+  const senderId = clean(input.pageId) || clean(input.instagramId);
   const recipientId = clean(input.recipientId);
   const text = clean(input.text).slice(0, 950);
-  if (!instagramId || !recipientId || !text) {
-    throw new Error("instagramId, recipientId و متن پیام برای ارسال دایرکت الزامی است.");
+  if (!senderId || !recipientId || !text) {
+    throw new Error("Page/Instagram ID، recipientId و متن پیام برای ارسال دایرکت الزامی است.");
   }
 
   return postFacebookJson(
-    `${instagramId}/messages`,
+    `${senderId}/messages`,
     input.accessToken,
     {
       recipient: { id: recipientId },

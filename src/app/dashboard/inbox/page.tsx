@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Loader2, MessageCircle, RefreshCcw, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, MessageCircle, RefreshCcw, Send, ShieldCheck } from "lucide-react";
 
 type AutoReplyPreview = {
   shouldReply: boolean;
@@ -103,6 +103,7 @@ function messageText(msg: DiagnosticsMessage) {
 export default function InboxPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [sendingKey, setSendingKey] = useState("");
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [message, setMessage] = useState("");
   const conversations = diagnostics?.conversations || [];
@@ -153,6 +154,33 @@ ${json.hint}` : base);
       setMessage((error as Error).message || "خطا در همگام‌سازی.");
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function sendReplyToInstagram(msg: DiagnosticsMessage) {
+    const replyText = msg.autoReply?.privateReplyText || msg.autoReply?.responseText || "";
+    const key = msg.id || msg.from?.id || "reply";
+    setSendingKey(key);
+    setMessage("");
+    try {
+      const res = await fetch("/api/instagram/send-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientId: msg.from?.id,
+          sourceText: messageText(msg),
+          text: replyText,
+          confirm: "send_to_instagram",
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "ارسال پاسخ به اینستاگرام ناموفق بود.");
+      setMessage(json.message || "پاسخ به دایرکت اینستاگرام ارسال شد.");
+      await loadInbox();
+    } catch (error) {
+      setMessage((error as Error).message || "خطا در ارسال پاسخ.");
+    } finally {
+      setSendingKey("");
     }
   }
 
@@ -252,8 +280,16 @@ ${json.hint}` : base);
                           <p>{messageText(msg)}</p>
                           {incoming && msg.autoReply?.shouldReply && (
                             <div className="mt-2 rounded-xl bg-white/80 p-2 text-right text-[10px] font-bold leading-5 text-[#5B2BE2] ring-1 ring-[#E6DCF8]">
-                              <p className="font-black">پاسخ پیشنهادی خودکار: {msg.autoReply.trigger} | {msg.autoReply.confidence}%</p>
+                              <p className="font-black">پاسخ آماده ارسال: {msg.autoReply.trigger} | {msg.autoReply.confidence}%</p>
                               <p className="mt-1 text-[#24123F]">{msg.autoReply.privateReplyText || msg.autoReply.responseText}</p>
+                              <button
+                                onClick={() => sendReplyToInstagram(msg)}
+                                disabled={sendingKey === (msg.id || msg.from?.id)}
+                                className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-[#5B2BE2] px-3 text-[11px] font-black text-white shadow-[0_10px_22px_rgba(91,43,226,0.18)] disabled:opacity-50"
+                              >
+                                {sendingKey === (msg.id || msg.from?.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                ارسال همین پاسخ به دایرکت اینستاگرام
+                              </button>
                             </div>
                           )}
                         </div>
@@ -268,7 +304,7 @@ ${json.hint}` : base);
 
         <section className="rounded-[26px] bg-white p-3 text-right text-[12px] font-bold leading-6 text-[#6D6780] shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">
           <p className="flex items-center justify-end gap-2 font-black text-[#24123F]"><ShieldCheck className="h-4 w-4 text-[#5B2BE2]" /> مسیر بعدی</p>
-          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v20 کنار هر پیام ورودی، پاسخ پیشنهادی خودکار هم ساخته می‌شود.</p>
+          <p className="mt-1">مسیر فنی دایرکت تأیید شد: graph.facebook.com / Page Token / platform=instagram. از v21 کنار هر پیام ورودی، پاسخ آماده ارسال ساخته می‌شود و با دکمه ارسال، همان پاسخ داخل دایرکت اینستاگرام برای همان کاربر ارسال می‌شود.</p>
           <Link href="/dashboard/automation" className="mt-3 block rounded-2xl bg-[#F2EEFF] p-3 text-center text-[12px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]">تست قانون‌های جواب خودکار</Link>
         </section>
       </main>

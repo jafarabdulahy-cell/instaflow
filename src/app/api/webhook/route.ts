@@ -151,6 +151,7 @@ async function maybeSendLiveDmReply(input: {
   }
 
   const response = await sendInstagramTextMessage({
+    pageId: (input.account as { facebookPageId?: string | null }).facebookPageId || undefined,
     instagramId: input.account.instagramId,
     accessToken: input.account.accessToken,
     recipientId: input.instagramUserId,
