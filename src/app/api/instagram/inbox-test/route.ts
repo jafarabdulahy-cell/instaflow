@@ -26,6 +26,70 @@ function isAdvancedAccessError(value: unknown) {
   );
 }
 
+
+function isPageTokenLikelyMissing(value: unknown) {
+  const message = apiErrorMessage(value).toLowerCase();
+  return (
+    message.includes("page access token") ||
+    message.includes("object with id") ||
+    message.includes("does not exist") ||
+    message.includes("missing permissions") ||
+    message.includes("cannot be loaded") ||
+    message.includes("unsupported get request")
+  );
+}
+
+async function tryResolvePageAccessTokenFromUserToken(input: {
+  suppliedToken: string;
+  pageId: string;
+  instagramId?: string;
+  username?: string;
+}) {
+  const accountsRes = await fetchFacebookJson<{ data?: Array<Record<string, unknown>>; error?: unknown }>(
+    "me/accounts?fields=id,name,access_token,instagram_business_account&limit=100",
+    input.suppliedToken,
+  );
+
+  if (!accountsRes.ok || !Array.isArray(accountsRes.data.data)) {
+    return {
+      ok: false,
+      reason: apiErrorMessage(accountsRes.data),
+      raw: sanitizeInstagramPayload(accountsRes.data, input.suppliedToken),
+    };
+  }
+
+  const wantedPageId = clean(input.pageId);
+  const wantedInstagramId = clean(input.instagramId);
+  const wantedUsername = clean(input.username).toLowerCase();
+
+  const match = accountsRes.data.data.find((page) => {
+    const pageId = clean(page.id);
+    const pageName = clean(page.name).toLowerCase();
+    const ig = asRecord(page.instagram_business_account);
+    const igId = clean(ig.id);
+    return (
+      pageId === wantedPageId ||
+      (wantedInstagramId && igId === wantedInstagramId) ||
+      (wantedUsername && pageName === wantedUsername)
+    );
+  });
+
+  const accessToken = clean(match?.access_token);
+  if (!match || !accessToken) {
+    return {
+      ok: false,
+      reason: "Page در /me/accounts پیدا شدنی نبود یا access_token برنگشت. مطمئن شو META_PAGE_ACCESS_TOKEN واقعاً Page Token همان shanshin.rest است.",
+      raw: sanitizeInstagramPayload(accountsRes.data, input.suppliedToken),
+    };
+  }
+
+  return {
+    ok: true,
+    page: sanitizeInstagramPayload(match, accessToken),
+    pageAccessToken: accessToken,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const session = await requireApiSession(req);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -45,10 +109,35 @@ export async function GET(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const profileRes = await fetchFacebookJson<Record<string, unknown>>(
+  let effectivePageAccessToken = pageAccessToken;
+  let tokenSource = connection?.source || "server_env";
+  let tokenResolvedFromMeAccounts: unknown = null;
+
+  let profileRes = await fetchFacebookJson<Record<string, unknown>>(
     `${pageId}?fields=id,name,instagram_business_account`,
-    pageAccessToken,
+    effectivePageAccessToken,
   );
+
+  if (!profileRes.ok && isPageTokenLikelyMissing(profileRes.data)) {
+    const derived = await tryResolvePageAccessTokenFromUserToken({
+      suppliedToken: pageAccessToken,
+      pageId,
+      instagramId,
+      username,
+    });
+    const derivedToken = clean((derived as Record<string, unknown>).pageAccessToken);
+    if (derived.ok && derivedToken) {
+      effectivePageAccessToken = derivedToken;
+      tokenSource = "derived_page_token_from_user_token";
+      tokenResolvedFromMeAccounts = (derived as Record<string, unknown>).page;
+      profileRes = await fetchFacebookJson<Record<string, unknown>>(
+        `${pageId}?fields=id,name,instagram_business_account`,
+        effectivePageAccessToken,
+      );
+    } else {
+      tokenResolvedFromMeAccounts = derived;
+    }
+  }
 
   const pageProfile = profileRes.ok ? profileRes.data : null;
   const resolvedInstagramId = clean(asRecord(asRecord(pageProfile).instagram_business_account).id) || instagramId;
@@ -61,29 +150,59 @@ export async function GET(req: NextRequest) {
       error: apiErrorMessage(profileRes.data),
       profile: { id: resolvedInstagramId, username, name: pageName },
       pageId,
-      tokenPreview: maskToken(pageAccessToken),
-      raw: sanitizeInstagramPayload(profileRes.data, pageAccessToken),
+      tokenPreview: maskToken(effectivePageAccessToken),
+      tokenSource,
+      tokenResolvedFromMeAccounts,
+      raw: sanitizeInstagramPayload(profileRes.data, effectivePageAccessToken),
       conversations: [],
     }, { status: 200 });
   }
 
-  // v17: بسیار سبک؛ فقط آخرین گفتگو و فقط id/updated_time.
-  // این همان تستی است که در Graph API Explorer موفق شد.
-  const conversationsRes = await fetchFacebookJson<{ data?: Array<Record<string, unknown>>; paging?: unknown; error?: unknown }>(
+  // v18: اگر اشتباهی User Token در META_PAGE_ACCESS_TOKEN گذاشته شده باشد،
+  // /PAGE_ID/profile ممکن است جواب بدهد اما /conversations با خطای Unsupported get request رد شود.
+  // در این حالت از /me/accounts همان User Token را به Page Token واقعی تبدیل و دوباره تست می‌کنیم.
+  let conversationsRes = await fetchFacebookJson<{ data?: Array<Record<string, unknown>>; paging?: unknown; error?: unknown }>(
     `${pageId}/conversations?platform=instagram&limit=1&fields=id,updated_time`,
-    pageAccessToken,
+    effectivePageAccessToken,
   );
+
+  if (!conversationsRes.ok && isPageTokenLikelyMissing(conversationsRes.data)) {
+    const derived = await tryResolvePageAccessTokenFromUserToken({
+      suppliedToken: pageAccessToken,
+      pageId,
+      instagramId: resolvedInstagramId || instagramId,
+      username,
+    });
+    const derivedToken = clean((derived as Record<string, unknown>).pageAccessToken);
+    if (derived.ok && derivedToken && derivedToken !== effectivePageAccessToken) {
+      effectivePageAccessToken = derivedToken;
+      tokenSource = "derived_page_token_from_user_token";
+      tokenResolvedFromMeAccounts = (derived as Record<string, unknown>).page;
+      conversationsRes = await fetchFacebookJson<{ data?: Array<Record<string, unknown>>; paging?: unknown; error?: unknown }>(
+        `${pageId}/conversations?platform=instagram&limit=1&fields=id,updated_time`,
+        effectivePageAccessToken,
+      );
+    } else {
+      tokenResolvedFromMeAccounts = derived;
+    }
+  }
 
   if (!conversationsRes.ok) {
     return NextResponse.json({
       ok: false,
       stage: "conversations",
       advancedAccessNeeded: isAdvancedAccessError(conversationsRes.data),
+      pageTokenLikelyMissing: isPageTokenLikelyMissing(conversationsRes.data),
       error: apiErrorMessage(conversationsRes.data),
       profile: { id: resolvedInstagramId, username, name: pageName },
       pageId,
-      tokenPreview: maskToken(pageAccessToken),
-      raw: sanitizeInstagramPayload(conversationsRes.data, pageAccessToken),
+      tokenPreview: maskToken(effectivePageAccessToken),
+      tokenSource,
+      tokenResolvedFromMeAccounts,
+      hint: isPageTokenLikelyMissing(conversationsRes.data)
+        ? "این خطا معمولاً وقتی می‌آید که به جای Page Access Token واقعی، User Token یا توکن صفحه/اپ اشتباه ذخیره شده باشد. Page Token را از خروجی me/accounts همان Page بگیر یا اجازه بده برنامه از User Token آن را استخراج کند."
+        : "اگر خطا Advanced Access/Timeout باشد، اتصال درست است اما برای حجم بالای کاربران غیرتستر باید Review کامل شود.",
+      raw: sanitizeInstagramPayload(conversationsRes.data, effectivePageAccessToken),
       conversations: [],
     }, { status: 200 });
   }
@@ -99,7 +218,7 @@ export async function GET(req: NextRequest) {
     // چون بعضی اکانت‌ها را کند یا خطادار می‌کند.
     const messagesRes = await fetchFacebookJson<{ data?: Array<Record<string, unknown>>; error?: unknown }>(
       `${id}/messages?fields=id,message,from,to,created_time&limit=10`,
-      pageAccessToken,
+      effectivePageAccessToken,
     );
 
     conversations.push({
@@ -113,13 +232,14 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     mode: "page_token",
-    source: connection?.source || "server_env",
+    source: tokenSource,
     pageId,
     configuredInstagramId: instagramId,
     resolvedInstagramId,
     profile: { id: resolvedInstagramId, username, name: pageName },
     pageProfile: sanitizeInstagramPayload(pageProfile, pageAccessToken),
-    tokenPreview: maskToken(pageAccessToken),
+    tokenPreview: maskToken(effectivePageAccessToken),
+    tokenResolvedFromMeAccounts,
     conversations,
     emptyReason: conversations.length ? "" : "اتصال Page Token درست است، اما Meta فعلاً گفتگویی برنگرداند.",
   });

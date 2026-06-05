@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { captureAutoLead } from "@/lib/auto-lead";
-import { clean, fetchConversations, fetchConversationMessages, fetchInstagramJson } from "@/lib/instagram-api";
+import { clean, fetchConversations, fetchConversationMessages, fetchFacebookJson, fetchInstagramJson } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -14,6 +14,45 @@ function firstString(...values: unknown[]) {
     if (text) return text;
   }
   return "";
+}
+
+
+function apiErrorMessage(value: unknown) {
+  const record = asRecord(value);
+  const error = asRecord(record.error);
+  return clean(error.message) || clean(error.type) || "Meta API error";
+}
+
+function isPageTokenLikelyMissingMessage(message: string) {
+  const text = message.toLowerCase();
+  return (
+    text.includes("page access token") ||
+    text.includes("object with id") ||
+    text.includes("does not exist") ||
+    text.includes("missing permissions") ||
+    text.includes("cannot be loaded") ||
+    text.includes("unsupported get request")
+  );
+}
+
+async function derivePageTokenFromUserToken(input: { suppliedToken: string; pageId: string; instagramId?: string; username?: string | null }) {
+  const accountsRes = await fetchFacebookJson<{ data?: Array<Record<string, unknown>>; error?: unknown }>(
+    "me/accounts?fields=id,name,access_token,instagram_business_account&limit=100",
+    input.suppliedToken,
+  );
+  if (!accountsRes.ok || !Array.isArray(accountsRes.data.data)) return "";
+
+  const wantedPageId = clean(input.pageId);
+  const wantedInstagramId = clean(input.instagramId);
+  const wantedUsername = clean(input.username).toLowerCase();
+  const match = accountsRes.data.data.find((page) => {
+    const pageId = clean(page.id);
+    const pageName = clean(page.name).toLowerCase();
+    const ig = asRecord(page.instagram_business_account);
+    const igId = clean(ig.id);
+    return pageId === wantedPageId || (wantedInstagramId && igId === wantedInstagramId) || (wantedUsername && pageName === wantedUsername);
+  });
+  return clean(match?.access_token);
 }
 
 
@@ -64,24 +103,48 @@ export async function POST(req: NextRequest) {
   const debug: Array<Record<string, unknown>> = [];
 
   const usePageToken = connection.mode === "page_token" && Boolean(connection.pageId);
-  const conversations = await fetchConversations(
-    {
-      instagramId: account.instagramId,
-      accessToken: connection.accessToken,
+  let effectivePageToken = connection.pageAccessToken || connection.accessToken;
+  let conversations;
+  try {
+    conversations = await fetchConversations(
+      {
+        instagramId: account.instagramId,
+        accessToken: connection.accessToken,
+        pageId: connection.pageId || "",
+        pageAccessToken: effectivePageToken,
+      },
+      usePageToken
+        ? `${connection.pageId}/conversations?platform=instagram&fields=id,updated_time&limit=1`
+        : `${account.instagramId}/conversations?fields=id,participants,updated_time&limit=5`
+    );
+  } catch (error) {
+    const message = clean((error as Error).message);
+    if (!usePageToken || !isPageTokenLikelyMissingMessage(message)) throw error;
+    const derivedToken = await derivePageTokenFromUserToken({
+      suppliedToken: effectivePageToken,
       pageId: connection.pageId || "",
-      pageAccessToken: connection.pageAccessToken || connection.accessToken,
-    },
-    usePageToken
-      ? `${connection.pageId}/conversations?platform=instagram&fields=id,updated_time&limit=1`
-      : `${account.instagramId}/conversations?fields=id,participants,updated_time&limit=5`
-  );
+      instagramId: account.instagramId,
+      username: account.username,
+    });
+    if (!derivedToken) throw error;
+    effectivePageToken = derivedToken;
+    conversations = await fetchConversations(
+      {
+        instagramId: account.instagramId,
+        accessToken: connection.accessToken,
+        pageId: connection.pageId || "",
+        pageAccessToken: effectivePageToken,
+      },
+      `${connection.pageId}/conversations?platform=instagram&fields=id,updated_time&limit=1`
+    );
+  }
 
   const conversationList = Array.isArray(conversations.data) ? conversations.data : [];
 
   for (const conversation of conversationList.slice(0, 1)) {
     if (!conversation.id) continue;
     checkedConversations += 1;
-    const messages = await fetchMessages(conversation.id, connection.accessToken, usePageToken ? "facebook" : "instagram");
+    const messages = await fetchMessages(conversation.id, usePageToken ? effectivePageToken : connection.accessToken, usePageToken ? "facebook" : "instagram");
     checkedMessages += messages.length;
 
     for (const message of messages) {

@@ -31,6 +31,9 @@ type Diagnostics = {
   conversations?: DiagnosticsConversation[];
   emptyReason?: string;
   error?: string;
+  hint?: string;
+  pageTokenLikelyMissing?: boolean;
+  tokenSource?: string;
 };
 
 function formatDate(value?: string) {
@@ -110,7 +113,11 @@ export default function InboxPage() {
       if (!res.ok && !json) throw new Error("خواندن وضعیت اینباکس ناموفق بود.");
       setDiagnostics(json);
       if (json?.error) {
-        setMessage(json.advancedAccessNeeded ? `${json.error} — اتصال درست است، اما برای خواندن همه دایرکت‌ها Advanced Access لازم است.` : json.error);
+        const base = json.advancedAccessNeeded
+          ? `${json.error} — اتصال درست است، اما برای خواندن همه دایرکت‌ها Advanced Access لازم است.`
+          : json.error;
+        setMessage(json.hint ? `${base}
+${json.hint}` : base);
       }
     } catch (error) {
       setMessage((error as Error).message || "خطا در خواندن اینباکس.");
