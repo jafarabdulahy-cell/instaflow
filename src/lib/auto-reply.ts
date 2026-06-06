@@ -1,5 +1,5 @@
-import { buildRuleResponseText, findMatchingManualAutoReplyRule } from "@/lib/auto-reply-rules";
-import { buildCommentRuleDmText, findMatchingCommentAutomationRule } from "@/lib/v24-features";
+import { buildRuleResponseTextForWorkspace, findMatchingManualAutoReplyRule } from "@/lib/auto-reply-rules";
+import { buildCommentRuleDmTextForWorkspace, findMatchingCommentAutomationRule } from "@/lib/v24-features";
 
 export type AutoReplySource = "instagram_dm" | "instagram_comment" | "instagram_story_reply" | "instagram_interaction";
 
@@ -293,7 +293,7 @@ export async function buildAutoReplyDecisionForWorkspace(input: {
   if (source === "instagram_comment") {
     const commentRule = await findMatchingCommentAutomationRule(workspaceId, input.text).catch(() => null);
     if (commentRule) {
-      const responseText = buildCommentRuleDmText(commentRule);
+      const responseText = await buildCommentRuleDmTextForWorkspace(workspaceId, commentRule);
       const shouldReply = mode !== "off" && Boolean(responseText || commentRule.publicReply);
       return {
         shouldReply,
@@ -316,7 +316,7 @@ export async function buildAutoReplyDecisionForWorkspace(input: {
 
   if (!manualRule) return buildAutoReplyDecision(input);
 
-  const responseText = buildRuleResponseText(manualRule);
+  const responseText = await buildRuleResponseTextForWorkspace(workspaceId, manualRule);
   const action = sourceAction(source, true);
   const shouldReply = mode !== "off" && Boolean(responseText);
 

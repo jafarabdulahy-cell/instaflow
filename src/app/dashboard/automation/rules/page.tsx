@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Copy, Edit3, FileText, Home, Image as ImageIcon, Link2, Loader2, MessageCircle, MessageSquare, Paperclip, Plus, RefreshCcw, Search, ToggleLeft, UsersRound, Video, Volume2, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, Copy, Edit3, FileText, Home, Image as ImageIcon, Link2, Loader2, MessageCircle, MessageSquare, Paperclip, Plus, ShoppingBag, RefreshCcw, Search, ToggleLeft, UsersRound, Video, Volume2, Zap } from "lucide-react";
 
 type Rule = {
   id: string;
@@ -124,8 +124,9 @@ export default function AutomationRulesPage() {
 
         <Link href="/dashboard/automation/rules/new" className="flex h-14 items-center justify-center gap-2 rounded-[22px] bg-gradient-to-l from-[#5B2BE2] to-[#B000B8] text-[14px] font-black text-white shadow-[0_18px_34px_rgba(91,43,226,0.22)]"><Plus className="h-5 w-5" /> افزودن قانون جدید</Link>
 
-        <section className="grid grid-cols-4 gap-2">
+        <section className="grid grid-cols-5 gap-2">
           <Link href="/dashboard/assets" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><Paperclip className="h-4 w-4" />پیوست‌ها</Link>
+          <Link href="/dashboard/cards" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><ShoppingBag className="h-4 w-4" />کارت‌ها</Link>
           <Link href="/dashboard/comments" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><MessageSquare className="h-4 w-4" />کامنت</Link>
           <Link href="/dashboard/templates" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><BookOpen className="h-4 w-4" />قالب‌ها</Link>
           <Link href="/dashboard/logs" className="flex h-14 flex-col items-center justify-center rounded-2xl bg-white text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><RefreshCcw className="h-4 w-4" />لاگ‌ها</Link>

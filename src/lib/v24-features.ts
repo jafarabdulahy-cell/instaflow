@@ -141,6 +141,169 @@ export async function deleteMediaAsset(workspaceId: string, assetId: string) {
   return true;
 }
 
+
+export type DirectCardButton = { label: string; url: string };
+
+export type DirectCard = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  price: string;
+  buttons: DirectCardButton[];
+  isActive: boolean;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+};
+
+type RawDirectCardRow = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  price: string | null;
+  buttons: string | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+};
+
+function safeButtons(value: unknown): DirectCardButton[] {
+  const text = clean(value);
+  let items: unknown[] = [];
+  if (Array.isArray(value)) items = value;
+  else if (text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) items = parsed;
+    } catch {
+      items = [];
+    }
+  }
+  return items
+    .map((item) => {
+      const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      const label = clean(record.label || record.title || record.name);
+      const url = ensureUrl(record.url || record.link || record.href);
+      if (!label || !url) return null;
+      return { label: label.slice(0, 80), url: url.slice(0, 900) };
+    })
+    .filter(Boolean)
+    .slice(0, 6) as DirectCardButton[];
+}
+
+function rowToDirectCard(row: RawDirectCardRow): DirectCard {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    name: row.name,
+    title: row.title,
+    description: row.description || "",
+    imageUrl: row.image_url || "",
+    price: row.price || "",
+    buttons: safeButtons(row.buttons),
+    isActive: row.is_active !== false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function ensureDirectCardsTable() {
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS instaflow_direct_cards (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      image_url TEXT,
+      price TEXT,
+      buttons TEXT NOT NULL DEFAULT '[]',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_direct_cards_workspace_idx ON instaflow_direct_cards(workspace_id, is_active, created_at)`);
+}
+
+export async function listDirectCards(workspaceId: string, options: { activeOnly?: boolean } = {}) {
+  const workspace = clean(workspaceId);
+  if (!workspace) return [];
+  await ensureDirectCardsTable();
+  const rows = await prisma.$queryRawUnsafe<RawDirectCardRow[]>(
+    `SELECT * FROM instaflow_direct_cards WHERE workspace_id=$1 ${options.activeOnly ? "AND is_active = TRUE" : ""} ORDER BY created_at DESC`,
+    workspace
+  );
+  return rows.map(rowToDirectCard);
+}
+
+export async function getDirectCard(workspaceId: string, cardId: string) {
+  const workspace = clean(workspaceId);
+  const id = clean(cardId);
+  if (!workspace || !id) return null;
+  await ensureDirectCardsTable();
+  const rows = await prisma.$queryRawUnsafe<RawDirectCardRow[]>(`SELECT * FROM instaflow_direct_cards WHERE workspace_id=$1 AND id=$2 LIMIT 1`, workspace, id);
+  return rows[0] ? rowToDirectCard(rows[0]) : null;
+}
+
+export async function createDirectCard(workspaceId: string, input: Record<string, unknown>) {
+  const workspace = clean(workspaceId);
+  if (!workspace) throw new Error("workspaceId نامعتبر است.");
+  const title = clean(input.title) || "کارت جدید";
+  const name = clean(input.name) || title;
+  const description = clean(input.description);
+  const imageUrl = ensureUrl(input.imageUrl || input.image || input.mediaUrl);
+  const price = clean(input.price);
+  const buttons = safeButtons(input.buttons);
+  if (!title && !description && !imageUrl) throw new Error("عنوان، توضیح یا عکس کارت الزامی است.");
+  await ensureDirectCardsTable();
+  const id = randomUUID();
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO instaflow_direct_cards (id, workspace_id, name, title, description, image_url, price, buttons, is_active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    id,
+    workspace,
+    name.slice(0, 140),
+    title.slice(0, 160),
+    description.slice(0, 700) || null,
+    imageUrl.slice(0, 900) || null,
+    price.slice(0, 80) || null,
+    JSON.stringify(buttons),
+    input.isActive !== false
+  );
+  return getDirectCard(workspace, id);
+}
+
+export async function deleteDirectCard(workspaceId: string, cardId: string) {
+  const workspace = clean(workspaceId);
+  const id = clean(cardId);
+  if (!workspace || !id) return false;
+  await ensureDirectCardsTable();
+  await prisma.$executeRawUnsafe(`DELETE FROM instaflow_direct_cards WHERE workspace_id=$1 AND id=$2`, workspace, id);
+  return true;
+}
+
+export function buildDirectCardText(card: DirectCard) {
+  const lines: string[] = [];
+  if (card.title) lines.push(`📌 ${card.title}`);
+  if (card.description) lines.push(card.description);
+  if (card.price) lines.push(`قیمت: ${card.price}`);
+  if (card.imageUrl) lines.push(`عکس: ${card.imageUrl}`);
+  for (const button of card.buttons || []) {
+    lines.push(`${button.label}: ${button.url}`);
+  }
+  return lines.filter(Boolean).join("\n").slice(0, 1400);
+}
+
+export async function buildDirectCardTextById(workspaceId: string, cardId: string) {
+  const card = await getDirectCard(workspaceId, cardId);
+  return card && card.isActive ? buildDirectCardText(card) : "";
+}
+
 export type ReplyTemplate = {
   id: string;
   workspaceId: string;
@@ -248,6 +411,7 @@ export type CommentAutomationRule = {
   dmReply: string;
   isActive: boolean;
   sendDm: boolean;
+  cardId: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 };
@@ -262,6 +426,7 @@ type RawCommentRuleRow = {
   dm_reply: string | null;
   is_active: boolean;
   send_dm: boolean;
+  card_id?: string | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -282,6 +447,7 @@ async function ensureCommentRulesTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_comment_rules ADD COLUMN IF NOT EXISTS card_id TEXT`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_comment_rules_workspace_idx ON instaflow_comment_rules(workspace_id, is_active)`);
 }
 
@@ -296,6 +462,7 @@ function rowToCommentRule(row: RawCommentRuleRow): CommentAutomationRule {
     dmReply: row.dm_reply || "",
     isActive: row.is_active !== false,
     sendDm: row.send_dm !== false,
+    cardId: row.card_id || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -319,11 +486,12 @@ export async function createCommentAutomationRule(workspaceId: string, input: Re
   const name = clean(input.name) || (triggers[0] ? `کامنت ${triggers[0]}` : "قانون کامنت");
   const publicReply = clean(input.publicReply) || "سلام 🌹 دایرکت را بررسی کنید.";
   const dmReply = clean(input.dmReply);
+  const cardId = clean(input.cardId);
   if (!triggers.length) throw new Error("حداقل یک کلمه کلیدی کامنت وارد کنید.");
   await ensureCommentRulesTable();
   const id = randomUUID();
   await prisma.$executeRawUnsafe(
-    `INSERT INTO instaflow_comment_rules (id, workspace_id, name, triggers, match_type, public_reply, dm_reply, is_active, send_dm) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    `INSERT INTO instaflow_comment_rules (id, workspace_id, name, triggers, match_type, public_reply, dm_reply, is_active, send_dm, card_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
     id,
     workspace,
     name.slice(0, 160),
@@ -332,7 +500,8 @@ export async function createCommentAutomationRule(workspaceId: string, input: Re
     publicReply.slice(0, 700),
     dmReply.slice(0, 1800),
     input.isActive !== false,
-    input.sendDm !== false
+    input.sendDm !== false,
+    cardId || null
   );
   return (await listCommentAutomationRules(workspace)).find((item) => item.id === id) || null;
 }
@@ -364,6 +533,12 @@ export async function findMatchingCommentAutomationRule(workspaceId: string, tex
 
 export function buildCommentRuleDmText(rule: CommentAutomationRule) {
   return clean(rule.dmReply) || clean(rule.publicReply) || `سلام 🌹 ${rule.name}`;
+}
+
+export async function buildCommentRuleDmTextForWorkspace(workspaceId: string, rule: CommentAutomationRule) {
+  const base = buildCommentRuleDmText(rule);
+  const cardText = rule.cardId ? await buildDirectCardTextById(workspaceId, rule.cardId) : "";
+  return [base, cardText].filter(Boolean).join("\n\n").slice(0, 1900);
 }
 
 export async function listAutomationLogs(workspaceId: string) {

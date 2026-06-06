@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, FileText, Home, Image as ImageIcon, Link2, Loader2, MessageCircle, Mic, Plus, Save, UsersRound, Video, X, Zap } from "lucide-react";
+import { ArrowRight, FileText, Home, Image as ImageIcon, Link2, Loader2, MessageCircle, Mic, Plus, Save, ShoppingBag, UsersRound, Video, X, Zap } from "lucide-react";
 
 type Attachment = { type: "image" | "video" | "audio" | "file" | "link"; url: string; label?: string };
 type Rule = { id: string; name: string; triggers: string[]; matchType: "equals" | "contains"; responseText: string; mediaType: "none" | "image" | "video" | "audio" | "file" | "link"; mediaUrl: string; attachments?: Attachment[]; isActive: boolean; sendOnce: boolean };
 
 type Asset = { id: string; name: string; assetType: Attachment["type"]; url: string };
 type Template = { id: string; title: string; body: string; mediaType?: Attachment["type"] | "none"; mediaUrl?: string };
+type DirectCard = { id: string; name: string; title: string; description: string; imageUrl: string; price: string; buttons: { label: string; url: string }[] };
 
 const typeButtons = [
   { key: "image", label: "عکس", icon: ImageIcon },
@@ -30,10 +31,12 @@ export default function NewAutomationRulePage() {
   const [mediaType, setMediaType] = useState<Rule["mediaType"]>("none");
   const [mediaUrl, setMediaUrl] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [cardId, setCardId] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [sendOnce, setSendOnce] = useState(true);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [cards, setCards] = useState<DirectCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -41,6 +44,7 @@ export default function NewAutomationRulePage() {
     const id = fromParam("id");
     void fetch("/api/automation/assets", { cache: "no-store" }).then((res) => res.json()).then((json) => setAssets(json.assets || [])).catch(() => setAssets([]));
     void fetch("/api/automation/templates", { cache: "no-store" }).then((res) => res.json()).then((json) => setTemplates(json.templates || [])).catch(() => setTemplates([]));
+    void fetch("/api/automation/cards", { cache: "no-store" }).then((res) => res.json()).then((json) => setCards(json.cards || [])).catch(() => setCards([]));
     if (!id) return;
     setEditingId(id);
     setLoading(true);
@@ -56,6 +60,7 @@ export default function NewAutomationRulePage() {
         setMediaType(rule.mediaType || "none");
         setMediaUrl(rule.mediaUrl || "");
         setAttachments(rule.attachments || []);
+        setCardId((rule as Rule & { cardId?: string }).cardId || "");
         setIsActive(rule.isActive !== false);
         setSendOnce(rule.sendOnce !== false);
       })
@@ -81,7 +86,7 @@ export default function NewAutomationRulePage() {
     setMessage("");
     setLoading(true);
     try {
-      const payload = { name, triggers, matchType, responseText, mediaType, mediaUrl, attachments: attachments.filter((item) => item.url.trim()), isActive, sendOnce };
+      const payload = { name, triggers, matchType, responseText, mediaType, mediaUrl, attachments: attachments.filter((item) => item.url.trim()), cardId, isActive, sendOnce };
       const res = await fetch(editingId ? `/api/automation/rules/${editingId}` : "/api/automation/rules", { method: editingId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) throw new Error(json.error || "ذخیره قانون ناموفق بود.");
@@ -108,6 +113,8 @@ export default function NewAutomationRulePage() {
           <div className="mt-3 grid grid-cols-4 gap-2">{typeButtons.map((item) => { const Icon = item.icon; return <button key={item.key} onClick={() => addAttachment(item.key)} className="flex h-12 flex-col items-center justify-center rounded-2xl bg-[#FBFAFF] text-[10px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]"><Icon className="h-4 w-4" />{item.label}</button>; })}</div>
           {!!assets.length && <select onChange={(e) => { if (e.target.value) applyAsset(e.target.value); e.currentTarget.value = ""; }} className="mt-3 h-12 w-full rounded-2xl border border-[#ECE8F6] bg-white px-3 text-right text-[12px] font-black outline-none"><option value="">انتخاب از پیوست‌های ذخیره‌شده</option>{assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select>}
           {!!templates.length && <select onChange={(e) => { if (e.target.value) applyTemplate(e.target.value); e.currentTarget.value = ""; }} className="mt-2 h-12 w-full rounded-2xl border border-[#ECE8F6] bg-white px-3 text-right text-[12px] font-black outline-none"><option value="">استفاده از قالب آماده</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select>}
+          {!!cards.length && <select value={cardId} onChange={(e) => setCardId(e.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-[#ECE8F6] bg-white px-3 text-right text-[12px] font-black outline-none"><option value="">بدون کارت/ویترین</option>{cards.map((card) => <option key={card.id} value={card.id}>{card.title || card.name}</option>)}</select>}
+          <Link href="/dashboard/cards" className="mt-2 flex h-11 items-center justify-center gap-2 rounded-2xl bg-[#F2EEFF] text-[11px] font-black text-[#5B2BE2] ring-1 ring-[#E6DCF8]"><ShoppingBag className="h-4 w-4" /> ساخت و مدیریت کارت‌ها</Link>
           <div className="mt-3 space-y-2">{attachments.map((item, index) => <div key={index} className="rounded-2xl bg-[#FBFAFF] p-2 ring-1 ring-[#ECE8F6]"><div className="mb-2 flex items-center justify-between"><button onClick={() => removeAttachment(index)} className="grid h-8 w-8 place-items-center rounded-xl bg-red-50 text-red-700"><X className="h-4 w-4" /></button><span className="text-[11px] font-black text-[#5B2BE2]">{item.label || item.type}</span></div><input value={item.url} onChange={(e) => updateAttachment(index, { url: e.target.value })} placeholder="https://..." dir="ltr" className="h-11 w-full rounded-xl border border-[#ECE8F6] bg-white px-2 text-left text-[11px] font-bold outline-none" /></div>)}</div>
         </section>
 
@@ -116,7 +123,7 @@ export default function NewAutomationRulePage() {
           <label className="mt-2 flex items-center justify-between rounded-2xl bg-[#FBFAFF] p-3 text-[12px] font-black"><input type="checkbox" checked={sendOnce} onChange={(e) => setSendOnce(e.target.checked)} className="h-5 w-5 accent-[#5B2BE2]" /> پاسخ فقط یک‌بار به هر پیام</label>
         </section>
 
-        <section className="rounded-[26px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><p className="text-[12px] font-black text-emerald-700">پیش‌نمایش</p><div className="mt-2 rounded-2xl bg-[#FBFAFF] p-3 text-[12px] font-bold leading-7 text-[#24123F] ring-1 ring-[#ECE8F6]"><p className="text-left text-[11px] text-[#8A8498]">کاربر: {triggers[0] || "منو"}</p><p className="mt-2 whitespace-pre-line">{responseText}</p>{attachments.filter((item) => item.url).map((item, index) => <p key={index} dir="ltr" className="mt-2 truncate rounded-xl bg-white p-2 text-left text-[10px] text-[#5B2BE2] ring-1 ring-[#ECE8F6]">{item.label || item.type}: {item.url}</p>)}</div></section>
+        <section className="rounded-[26px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]"><p className="text-[12px] font-black text-emerald-700">پیش‌نمایش</p><div className="mt-2 rounded-2xl bg-[#FBFAFF] p-3 text-[12px] font-bold leading-7 text-[#24123F] ring-1 ring-[#ECE8F6]"><p className="text-left text-[11px] text-[#8A8498]">کاربر: {triggers[0] || "منو"}</p><p className="mt-2 whitespace-pre-line">{responseText}</p>{attachments.filter((item) => item.url).map((item, index) => <p key={index} dir="ltr" className="mt-2 truncate rounded-xl bg-white p-2 text-left text-[10px] text-[#5B2BE2] ring-1 ring-[#ECE8F6]">{item.label || item.type}: {item.url}</p>)}{cardId && (() => { const card = cards.find((item) => item.id === cardId); return card ? <div className="mt-3 overflow-hidden rounded-2xl bg-white ring-1 ring-[#ECE8F6]"><div className="p-3"><p className="text-[13px] font-black text-[#24123F]">📌 {card.title}</p><p className="mt-1 text-[11px] leading-5 text-[#6D6780]">{card.description}</p><div className="mt-2 flex flex-wrap gap-1">{card.buttons.map((button, index) => <span key={index} className="rounded-full bg-[#F2EEFF] px-2 py-1 text-[9px] font-black text-[#5B2BE2]">{button.label}</span>)}</div></div></div> : null; })()}</div></section>
 
         {message && <section className="rounded-[20px] bg-amber-50 p-3 text-right text-[12px] font-bold leading-6 text-amber-900 ring-1 ring-amber-100">{message}</section>}
       </main>

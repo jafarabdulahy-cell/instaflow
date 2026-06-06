@@ -16,6 +16,7 @@ export type ManualAutoReplyRule = {
   mediaType: ManualRuleMediaType;
   mediaUrl: string;
   attachments: ManualRuleAttachment[];
+  cardId: string;
   isActive: boolean;
   sendOnce: boolean;
   createdAt?: string | Date;
@@ -30,6 +31,7 @@ export type CreateManualRuleInput = {
   mediaType?: string;
   mediaUrl?: string;
   attachments?: ManualRuleAttachment[] | string;
+  cardId?: string;
   imageUrl?: string;
   videoUrl?: string;
   audioUrl?: string;
@@ -48,6 +50,7 @@ type RawRuleRow = {
   media_type: string | null;
   media_url: string | null;
   attachments?: string | null;
+  card_id?: string | null;
   is_active: boolean;
   send_once: boolean;
   created_at: Date;
@@ -161,6 +164,49 @@ function ensureUrl(value: unknown) {
   return url;
 }
 
+
+type RawCardForRule = { title: string; description: string | null; image_url: string | null; price: string | null; buttons: string | null; is_active: boolean };
+
+function safeCardButtons(value: unknown): Array<{ label: string; url: string }> {
+  const text = clean(value);
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => {
+        const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        const label = clean(record.label || record.title || record.name);
+        const url = ensureUrl(record.url || record.link || record.href);
+        return label && url ? { label, url } : null;
+      })
+      .filter(Boolean)
+      .slice(0, 6) as Array<{ label: string; url: string }>;
+  } catch {
+    return [];
+  }
+}
+
+async function buildDirectCardTextByIdRaw(workspaceId: string, cardId: string) {
+  const workspace = clean(workspaceId);
+  const id = clean(cardId);
+  if (!workspace || !id) return "";
+  try {
+    const rows = await prisma.$queryRawUnsafe<RawCardForRule[]>(`SELECT title, description, image_url, price, buttons, is_active FROM instaflow_direct_cards WHERE workspace_id=$1 AND id=$2 LIMIT 1`, workspace, id);
+    const card = rows[0];
+    if (!card || card.is_active === false) return "";
+    const lines: string[] = [];
+    if (card.title) lines.push(`📌 ${card.title}`);
+    if (card.description) lines.push(card.description);
+    if (card.price) lines.push(`قیمت: ${card.price}`);
+    if (card.image_url) lines.push(`عکس: ${card.image_url}`);
+    for (const button of safeCardButtons(card.buttons)) lines.push(`${button.label}: ${button.url}`);
+    return lines.filter(Boolean).join("\n").slice(0, 1400);
+  } catch {
+    return "";
+  }
+}
+
 function rowToRule(row: RawRuleRow): ManualAutoReplyRule {
   return {
     id: row.id,
@@ -172,6 +218,7 @@ function rowToRule(row: RawRuleRow): ManualAutoReplyRule {
     mediaType: toMediaType(row.media_type),
     mediaUrl: row.media_url || "",
     attachments: safeAttachments(row.attachments),
+    cardId: row.card_id || "",
     isActive: Boolean(row.is_active),
     sendOnce: row.send_once !== false,
     createdAt: row.created_at,
@@ -200,6 +247,12 @@ export function buildRuleResponseText(rule: Pick<ManualAutoReplyRule, "responseT
   return [text, ...lines].filter(Boolean).join("\n\n").slice(0, 1900);
 }
 
+export async function buildRuleResponseTextForWorkspace(workspaceId: string, rule: ManualAutoReplyRule) {
+  const base = buildRuleResponseText(rule);
+  const cardText = rule.cardId ? await buildDirectCardTextByIdRaw(workspaceId, rule.cardId) : "";
+  return [base, cardText].filter(Boolean).join("\n\n").slice(0, 1900);
+}
+
 async function ensureRulesTable() {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS instaflow_auto_reply_rules (
@@ -218,6 +271,7 @@ async function ensureRulesTable() {
     )
   `);
   await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN IF NOT EXISTS card_id TEXT`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_auto_reply_rules_workspace_idx ON instaflow_auto_reply_rules(workspace_id, is_active)`);
 }
 
@@ -228,6 +282,7 @@ export function sanitizeRuleInput(input: CreateManualRuleInput) {
   const mediaType = toMediaType(input.mediaType);
   const mediaUrl = ensureUrl(input.mediaUrl);
   const attachments = attachmentsFromInput(input);
+  const cardId = clean(input.cardId);
 
   if (!triggers.length) throw new Error("حداقل یک کلمه کلیدی/فعال‌کننده وارد کنید.");
   if (!responseText && !mediaUrl && !attachments.length) throw new Error("متن پاسخ یا لینک رسانه/فایل الزامی است.");
@@ -240,6 +295,7 @@ export function sanitizeRuleInput(input: CreateManualRuleInput) {
     mediaType: mediaUrl ? mediaType === "none" ? "link" : mediaType : "none",
     mediaUrl: mediaUrl.slice(0, 700),
     attachments,
+    cardId,
     isActive: input.isActive !== false,
     sendOnce: input.sendOnce !== false,
   };
@@ -276,8 +332,8 @@ export async function createManualAutoReplyRule(workspaceId: string, input: Crea
   const ruleId = randomUUID();
   await ensureRulesTable();
   await prisma.$executeRawUnsafe(
-    `INSERT INTO instaflow_auto_reply_rules (id, workspace_id, name, triggers, match_type, response_text, media_type, media_url, attachments, is_active, send_once)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    `INSERT INTO instaflow_auto_reply_rules (id, workspace_id, name, triggers, match_type, response_text, media_type, media_url, attachments, card_id, is_active, send_once)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     ruleId,
     id,
     data.name,
@@ -287,6 +343,7 @@ export async function createManualAutoReplyRule(workspaceId: string, input: Crea
     data.mediaType,
     data.mediaUrl || null,
     JSON.stringify(data.attachments),
+    data.cardId || null,
     data.isActive,
     data.sendOnce
   );
@@ -303,7 +360,7 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
   await ensureRulesTable();
   await prisma.$executeRawUnsafe(
     `UPDATE instaflow_auto_reply_rules
-     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, is_active=$10, send_once=$11, updated_at=NOW()
+     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, card_id=$10, is_active=$11, send_once=$12, updated_at=NOW()
      WHERE workspace_id=$1 AND id=$2`,
     id,
     rid,
@@ -314,6 +371,7 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
     data.mediaType,
     data.mediaUrl || null,
     JSON.stringify(data.attachments),
+    data.cardId || null,
     data.isActive,
     data.sendOnce
   );
