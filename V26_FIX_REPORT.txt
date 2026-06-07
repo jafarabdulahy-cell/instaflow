@@ -51,3 +51,23 @@ Deployment notes:
 - Do not upload .env.local.
 - Keep Railway environment variables in Railway Variables only.
 - package.json start remains safe and does not run prisma db push.
+
+
+--- Railway Build Fix 2 ---
+Date: 2026-06-07
+
+Issue:
+Railway/Next.js 16 failed during next build with:
+"eslint configuration in next.config.ts is no longer supported".
+
+Fix:
+Removed the unsupported eslint.ignoreDuringBuilds block from next.config.ts.
+Kept typescript.ignoreBuildErrors because it is still accepted by NextConfig and was already used to keep MVP deploy unblocked.
+
+Files changed in this fix:
+- next.config.ts
+- V26_FIX_REPORT.txt
+
+Security check:
+.env.local is intentionally not included in the release package.
+node_modules and .next are intentionally not included.

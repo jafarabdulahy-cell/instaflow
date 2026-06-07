@@ -6,9 +6,6 @@ const nextConfig: NextConfig = {
     // Runtime routes were syntax-checked; keep deploy unblocked for MVP testing.
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "cdninstagram.com" },
