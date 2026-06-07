@@ -1,0 +1,53 @@
+Instaflow / Shanisgram v26 fixed package
+Date: 2026-06-07
+
+Baseline:
+- Based on user-provided instaflow_v26_clean.zip from Kiro.
+- v26_step1/v26_step2 changes from Kiro are preserved:
+  - shared AppNav
+  - improved Dashboard
+  - improved Rule List
+  - improved Logs
+
+Fixes applied by ChatGPT:
+1) Removed .env.local from final package
+   - The uploaded Kiro zip contained .env.local with real Railway database URL and Meta token.
+   - This file is NOT included in this final zip.
+   - Keep .env.example only.
+   - Do not upload .env.local to GitHub.
+
+2) Card-only auto reply rule is now valid
+   - File changed: src/lib/auto-reply-rules.ts
+   - Before: a rule required responseText, mediaUrl, or attachments.
+   - Now: cardId also counts as a valid response.
+   - New validation message:
+     «متن پاسخ، پیوست یا کارت الزامی است.»
+
+3) Rule editor cleanup
+   - File changed: src/app/dashboard/automation/rules/new/page.tsx
+   - Removed unused AppNav import because this page uses a fixed bottom save button.
+   - Updated response text label to clarify it is optional when a card or attachment is selected.
+
+4) /dashboard/automation navigation unified
+   - File changed: src/app/dashboard/automation/page.tsx
+   - Replaced the remaining hardcoded bottom nav with shared <AppNav />.
+   - Removed old nav-only imports.
+
+Security notes:
+- The database URL and Meta token that were visible in .env.local should be rotated in Railway/Meta when convenient.
+- Final zip does not contain the exposed values.
+
+Build/test notes:
+- npm run build could not be fully run in this sandbox because node_modules are not installed and this environment cannot install dependencies.
+- Command result here: prisma: not found.
+- Kiro previously reported successful build for the v26 baseline.
+- After extracting this zip locally, run:
+  npm install
+  npx prisma generate
+  npm run build
+
+Deployment notes:
+- Upload the full project to GitHub/Railway.
+- Do not upload .env.local.
+- Keep Railway environment variables in Railway Variables only.
+- package.json start remains safe and does not run prisma db push.

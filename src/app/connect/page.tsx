@@ -8,14 +8,13 @@ import {
   Bot,
   CheckCircle2,
   EyeOff,
-  Home,
   Link2,
   Loader2,
   MessageCircle,
   RefreshCcw,
   ShieldCheck,
-  UsersRound,
 } from "lucide-react";
+import { AppNav } from "@/components/app-nav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -410,15 +409,7 @@ export default function ConnectPage() {
           <p className="mt-1">اگر Page Token درست باشد، برنامه در حالت تست فقط آخرین گفتگو را با limit=1 و چند پیام آخر همان گفتگو را نشان می‌دهد؛ Sync هم فعلاً فقط روی همین یک گفتگو اجرا می‌شود. اگر Meta خطای Timeout/Advanced Access بدهد، یعنی مسیر فنی درست است ولی برای دایرکت‌های زیاد باید App Review کامل شود.</p>
         </section>
 
-        <nav className="fixed bottom-3 left-1/2 z-20 h-[66px] w-[calc(100%-32px)] max-w-[398px] -translate-x-1/2 rounded-[26px] bg-white/96 p-2 shadow-[0_-10px_30px_rgba(42,16,90,0.08)] ring-1 ring-[#ECE8F6] backdrop-blur-xl">
-          <div className="grid h-full grid-cols-5 gap-1">
-            <Link href="/dashboard" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><Home className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">خانه</span></Link>
-            <Link href="/dashboard/inbox" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><MessageCircle className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">اینباکس</span></Link>
-            <Link href="/dashboard/automation/rules" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><Bot className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">قوانین</span></Link>
-            <Link href="/dashboard/leads" className="flex flex-col items-center justify-center rounded-2xl text-[#6D6780]"><UsersRound className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">لیدها</span></Link>
-            <Link href="/connect" className="flex flex-col items-center justify-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]"><Link2 className="h-5 w-5" /><span className="mt-1 text-[9px] font-black">اتصال</span></Link>
-          </div>
-        </nav>
+        <AppNav />
       </main>
     </div>
   );

@@ -1,65 +1,86 @@
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 const COOKIE_NAME = "instaflow_session";
-const MAX_AGE = 60 * 60 * 24 * 30;
+const DEMO_EMAIL = "admin@instaflow.local";
+const DEMO_PASSWORD = "123456";
 
-type SessionPayload = {
+export type ApiSession = {
   userId: string;
   workspaceId: string;
-  email: string;
+  email?: string;
+  name?: string;
+  role?: string;
 };
 
-function getSecret() {
-  return process.env.NEXTAUTH_SECRET || "dev-only-change-this-secret-32chars";
+function secret() {
+  return process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "instaflow-dev-secret-change-me";
 }
 
-export function createSessionToken(payload: SessionPayload) {
-  return jwt.sign(payload, getSecret(), { expiresIn: `${MAX_AGE}s` });
+export function authCookieName() {
+  return COOKIE_NAME;
 }
 
-export function setSessionCookie(res: NextResponse, token: string) {
-  res.cookies.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: MAX_AGE,
-  });
+export function signSession(session: ApiSession) {
+  return jwt.sign(session, secret(), { expiresIn: "30d" });
 }
 
-export function clearSessionCookie(res: NextResponse) {
-  res.cookies.set(COOKIE_NAME, "", { path: "/", maxAge: 0 });
-}
-
-export function readTokenFromRequest(req: NextRequest) {
-  return req.cookies.get(COOKIE_NAME)?.value;
-}
-
-export async function getSessionFromToken(token?: string | null): Promise<SessionPayload | null> {
+export function verifySessionToken(token?: string | null): ApiSession | null {
   if (!token) return null;
   try {
-    return jwt.verify(token, getSecret()) as SessionPayload;
+    return jwt.verify(token, secret()) as ApiSession;
   } catch {
     return null;
   }
 }
 
-export async function getCurrentUser() {
-  const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
-  const session = await getSessionFromToken(token);
-  if (!session) return null;
-  return prisma.user.findUnique({
-    where: { id: session.userId },
-    include: { workspace: true },
-  });
+export async function requireApiSession(req: NextRequest): Promise<ApiSession | null> {
+  const fromCookie = req.cookies.get(COOKIE_NAME)?.value;
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  return verifySessionToken(fromCookie || bearer);
 }
 
-export async function requireApiSession(req: NextRequest) {
-  const session = await getSessionFromToken(readTokenFromRequest(req));
-  if (!session) return null;
-  return session;
+export async function authenticateUser(email: string, password: string) {
+  let user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() }, include: { workspace: true } });
+
+  if (!user) {
+    const totalUsers = await prisma.user.count().catch(() => 0);
+    const allowBootstrap = process.env.ALLOW_DEMO_BOOTSTRAP === "true" || totalUsers === 0;
+    if (allowBootstrap) {
+      const workspace = await prisma.workspace.upsert({
+        where: { slug: "default" },
+        create: { name: "InstaFlow", slug: "default" },
+        update: { name: "InstaFlow" },
+      });
+      const hash = await bcrypt.hash(password || DEMO_PASSWORD, 10);
+      user = await prisma.user.create({
+        data: {
+          workspaceId: workspace.id,
+          name: "مدیر سیستم",
+          email: email.trim().toLowerCase() || DEMO_EMAIL,
+          passwordHash: hash,
+          role: "owner",
+          plan: "pro",
+        },
+        include: { workspace: true },
+      });
+    }
+  }
+
+  if (!user) return null;
+  const ok = await bcrypt.compare(password, user.passwordHash).catch(() => false);
+  if (!ok) return null;
+
+  return {
+    user,
+    session: {
+      userId: user.id,
+      workspaceId: user.workspaceId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    } satisfies ApiSession,
+  };
 }

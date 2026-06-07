@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Home, Link2, Loader2, MessageCircle, MessageSquare, Plus, Send, ShoppingBag, Trash2, UsersRound, Zap } from "lucide-react";
+import { ArrowRight, Loader2, MessageSquare, Plus, Send, ShoppingBag, Trash2 } from "lucide-react";
+import { AppNav } from "@/components/app-nav";
 
 type Rule = { id: string; name: string; triggers: string[]; matchType: "equals" | "contains"; publicReply: string; dmReply: string; isActive: boolean; sendDm: boolean; cardId?: string };
 type DirectCard = { id: string; name: string; title: string; description: string };
@@ -76,7 +77,7 @@ export default function CommentsPage() {
           ))}
         </section>
       </main>
-      <nav className="fixed bottom-0 left-0 right-0 z-30 mx-auto max-w-[430px] rounded-t-[26px] bg-white/96 px-4 py-3 shadow-[0_-18px_36px_rgba(42,16,90,0.09)] ring-1 ring-[#ECE8F6] backdrop-blur"><div className="grid h-full grid-cols-5 gap-1 text-center text-[9px] font-black text-[#6D6780]"><Link href="/dashboard"><Home className="mx-auto h-5 w-5" /><span>خانه</span></Link><Link href="/dashboard/inbox"><MessageCircle className="mx-auto h-5 w-5" /><span>اینباکس</span></Link><Link href="/dashboard/automation/rules"><Zap className="mx-auto h-5 w-5" /><span>قوانین</span></Link><Link href="/dashboard/leads"><UsersRound className="mx-auto h-5 w-5" /><span>لیدها</span></Link><Link href="/connect"><Link2 className="mx-auto h-5 w-5" /><span>اتصال</span></Link></div></nav>
+      <AppNav />
     </div>
   );
 }

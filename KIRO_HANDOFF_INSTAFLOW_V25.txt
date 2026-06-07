@@ -1,0 +1,420 @@
+InstaFlow / Shanisgram — Kiro Handoff Notes
+نسخه: v25_cards_comments_full
+تاریخ: 2026-06-06
+زبان پروژه: Next.js 16 + TypeScript + Prisma + PostgreSQL
+هاست تست فعلی: Railway
+
+============================================================
+1) هدف پروژه
+============================================================
+InstaFlow / Shanisgram یک پنل اتوماسیون رسمی Instagram DM است که هدف آن شبیه ابزارهای حرفه‌ای مثل دایرکتم است:
+
+- دریافت دایرکت اینستاگرام از مسیر رسمی Meta Graph API
+- تبدیل دایرکت به لید/مخاطب CRM
+- تعریف قوانین پاسخ خودکار توسط کاربر
+- پاسخ به کلمات کلیدی مثل «منو»، «آدرس»، «رزرو»، «ساعت کاری»
+- اتصال پاسخ‌ها به پیوست، قالب آماده، کارت فروشگاهی و لینک خارجی
+- آماده‌سازی ساختار کامنت هوشمند: جواب داخل کامنت + ارسال دایرکت به کامنت‌گذار
+- آماده‌سازی برای Webhook رسمی بعد از Publish/App Review/Business Verification Meta
+
+فعلاً Appearance اولویت اصلی نیست، ولی UI باید موبایل‌فرست و قابل تست باشد.
+
+============================================================
+2) وضعیت اتصال Meta که قبلاً تست شده
+============================================================
+اکانت پایلوت:
+- Page ID: 812762118592536
+- Instagram Business ID: 17841453193519327
+- Username: shanshin.rest
+
+مسیر درست خواندن دایرکت:
+- graph.facebook.com/{PAGE_ID}/conversations?platform=instagram
+
+مسیر اشتباه که دیگر نباید مبنا باشد:
+- graph.instagram.com/{IG_ID}/conversations
+
+تست‌های انجام‌شده:
+- /me/accounts جواب داده و Page شانشین را با instagram_business_account نشان داده است.
+- conversations با limit=1 جواب داده است.
+- messages برای conversation تستی جواب داده است.
+- پیام‌های nazanin73.76 خوانده شده است.
+- ارسال دستی/تستی DM از سمت API در نسخه‌های قبلی کار کرده است.
+
+متغیرهای Railway/Env لازم:
+- META_PAGE_ID=812762118592536
+- META_PAGE_ACCESS_TOKEN=Page Access Token که با EAA شروع می‌شود
+- INSTAGRAM_ID=17841453193519327
+- INSTAGRAM_USERNAME=shanshin.rest
+- META_WEBHOOK_VERIFY_TOKEN=shanshin_meta_webhook_2026
+- INSTAFLOW_AUTO_REPLY_MODE=live
+- INSTAFLOW_ALLOW_LIVE_SEND=true
+
+نکته مهم:
+Webhook endpoint تست Verify را پاس کرده است:
+/api/meta/webhook?hub.mode=subscribe&hub.verify_token=shanshin_meta_webhook_2026&hub.challenge=12345
+باید خروجی 12345 بدهد.
+
+اما چون اپ Meta فعلاً Published نیست و Business Verification/App Review کامل نیست، Webhook واقعی برای دریافت پیام هنگام بسته بودن برنامه قابل اتکا نیست. فعلاً تست Auto Reply با باز بودن برنامه/InBox انجام می‌شود. بعد از Publish/App Review، همین منطق باید از Webhook واقعی اجرا شود.
+
+============================================================
+3) نسخه‌های مهم قبلی
+============================================================
+- v15: اولین نسخه‌ای که پیام‌ها را در برنامه خواند.
+- v16: بهبود UI و Sync تستی یک گفتگو.
+- v20: موتور اولیه پاسخ خودکار و پیشنهاد پاسخ.
+- v21: ارسال پاسخ به Instagram DM به‌صورت دستی از Inbox.
+- v22: Auto Reply تستی با polling حدود 20 ثانیه هنگام باز بودن Inbox.
+- v23: Webhook route + Rule Builder دستی.
+- v24: بخش‌های پایه پیوست‌ها، قالب‌ها، کامنت هوشمند و لاگ‌ها.
+- v25: کارت‌ساز/ویترین دایرکت + اتصال کارت به قانون‌ها و کامنت‌ها.
+
+این فایل کامل، نسخه v25 را به صورت پروژه کامل می‌دهد؛ نه فقط تغییرات src.
+
+============================================================
+4) امکانات موجود در v25
+============================================================
+الف) Dashboard
+مسیر:
+/dashboard
+
+لینک‌های اصلی باید از داشبورد و منوی موبایل قابل دسترسی باشند:
+- داشبورد
+- اینباکس
+- قوانین پاسخ خودکار
+- ساخت قانون جدید
+- پیوست‌ها/رسانه‌ها
+- قالب‌ها
+- کارت‌ها/ویترین دایرکت
+- کامنت هوشمند
+- لاگ‌ها
+- لیدها/مخاطبین
+- اتصال اینستاگرام
+
+ب) Inbox
+مسیر:
+/dashboard/inbox
+
+کاربرد:
+- خواندن آخرین conversation تستی با Page Token
+- نمایش پیام‌ها
+- Sync تستی
+- ارسال پاسخ دستی/تستی به Instagram
+- هنگام باز بودن برنامه، Auto Reply می‌تواند با sync/polling تست شود.
+
+ج) قوانین پاسخ خودکار
+مسیرها:
+/dashboard/automation/rules
+/dashboard/automation/rules/new
+
+قانون باید بتواند داشته باشد:
+- نام قانون
+- چند کلمه کلیدی
+- نوع شرط: equals / contains یا برابر / شامل
+- پاسخ متنی
+- پیوست‌ها
+- کارت متصل
+- فعال/غیرفعال
+- ارسال فقط یک‌بار
+
+د) پیوست‌ها/رسانه‌ها
+مسیر:
+/dashboard/assets
+
+فعلاً پیوست‌ها به صورت لینک ذخیره می‌شوند:
+- image
+- video
+- audio
+- file
+- link
+
+در نسخه‌های بعدی upload مستقیم اضافه می‌شود.
+
+ه) قالب‌های آماده
+مسیر:
+/dashboard/templates
+
+برای ساخت متن‌های آماده:
+- منو
+- آدرس
+- ساعت کاری
+- رزرو
+- تشکر
+- شکایت/پشتیبانی
+- همکاری
+
+و) کارت‌ها / ویترین دایرکت
+مسیر:
+/dashboard/cards
+
+کارت شبیه فروشگاه اینترنتی/دایرکتم ساخته می‌شود:
+- نام کارت
+- عکس کارت
+- عنوان
+- توضیح
+- قیمت اختیاری
+- دکمه‌های دستی تا 6 عدد
+- برای هر دکمه: عنوان + لینک خارجی
+- پیش‌نمایش کارت
+
+در ارسال واقعی اگر Native Card از Meta محدود باشد، fallback به متن مرتب + لینک‌ها انجام می‌شود.
+مثال خروجی fallback:
+📌 اکبرجوجه شانشین
+مناسب دو نفر، همراه برنج و دورچین
+قیمت: ...
+عکس: https://...
+مشاهده منو: https://...
+رزرو میز: https://...
+
+ز) کامنت هوشمند
+مسیر:
+/dashboard/comments
+
+هدف:
+- اگر کاربر زیر پست کامنت گذاشت «منو»، بتوانیم هم زیر کامنت جواب عمومی بدهیم و هم در دایرکت پیام خصوصی بدهیم.
+
+مدل قانون کامنت:
+- نام قانون
+- کلمات کلیدی کامنت
+- نوع شرط: برابر/شامل
+- پاسخ عمومی داخل کامنت
+- ارسال دایرکت روشن/خاموش
+- متن دایرکت
+- کارت متصل
+- فعال/غیرفعال
+
+اجرای واقعی Comment-to-DM به دسترسی‌های Meta و App Review بستگی دارد، اما ساختار برنامه آماده شده است.
+
+ح) لاگ‌ها
+مسیر:
+/dashboard/logs
+
+برای نمایش رویدادهای webhook/automation:
+- eventType
+- processed
+- createdAt
+- senderId
+
+============================================================
+5) ساختار مهم فایل‌ها
+============================================================
+Root:
+- package.json
+- next.config.ts
+- tsconfig.json
+- postcss.config.mjs
+- prisma/schema.prisma
+- .env.example
+- README.md
+- KIRO_HANDOFF_INSTAFLOW_V25.txt
+
+Source:
+- src/app/dashboard/page.tsx
+- src/app/dashboard/inbox/page.tsx
+- src/app/dashboard/automation/rules/page.tsx
+- src/app/dashboard/automation/rules/new/page.tsx
+- src/app/dashboard/assets/page.tsx
+- src/app/dashboard/templates/page.tsx
+- src/app/dashboard/cards/page.tsx
+- src/app/dashboard/comments/page.tsx
+- src/app/dashboard/logs/page.tsx
+- src/app/connect/page.tsx
+
+API:
+- src/app/api/instagram/inbox-test/route.ts
+- src/app/api/instagram/sync/route.ts
+- src/app/api/instagram/send-reply/route.ts
+- src/app/api/instagram/settings/route.ts
+- src/app/api/instagram/diagnostics/route.ts
+- src/app/api/automation/rules/route.ts
+- src/app/api/automation/assets/route.ts
+- src/app/api/automation/templates/route.ts
+- src/app/api/automation/cards/route.ts
+- src/app/api/automation/comment-rules/route.ts
+- src/app/api/automation/logs/route.ts
+- src/app/api/webhook/route.ts
+- src/app/api/meta/webhook/route.ts
+
+Core libs:
+- src/lib/instagram-api.ts
+- src/lib/instagram-connection.ts
+- src/lib/auto-reply.ts
+- src/lib/auto-reply-rules.ts
+- src/lib/auto-lead.ts
+- src/lib/v24-features.ts
+- src/lib/meta-webhook.ts
+- src/lib/prisma.ts
+- src/lib/auth.ts
+
+============================================================
+6) دیتابیس
+============================================================
+Prisma schema شامل جدول‌های پایه است:
+- Workspace
+- User
+- InstagramAccount
+- Contact
+- Conversation
+- Message
+- WebhookEvent
+
+جدول‌های جدید اتوماسیون به صورت safe raw SQL با CREATE TABLE IF NOT EXISTS ساخته می‌شوند و در Prisma schema مدل نشده‌اند تا migration سنگین نیاز نباشد:
+- instaflow_auto_reply_rules
+- instaflow_media_assets
+- instaflow_reply_templates
+- instaflow_comment_rules
+- instaflow_direct_cards
+
+هشدار مهم:
+در package.json دستور start عمداً prisma db push ندارد.
+دلیل: در نسخه قبلی باعث خطای Data Loss شد و Prisma می‌خواست جدول‌های خام را حذف کند.
+Start باید فقط این باشد:
+- next start -H 0.0.0.0 -p ${PORT:-3000}
+
+برای ساخت جدول‌های پایه فقط در مرحله setup یا دستی اجرا شود:
+- npm run db:push
+
+جدول‌های raw اتوماسیون با اولین استفاده خودشان ساخته می‌شوند.
+
+============================================================
+7) نصب و اجرا برای Kiro / Local
+============================================================
+1. فایل ZIP را Extract کن.
+2. وارد پوشه پروژه شو.
+3. .env.example را به .env.local کپی کن.
+4. DATABASE_URL و توکن‌های Meta را تنظیم کن.
+5. نصب:
+   npm install
+6. ساخت Prisma Client:
+   npx prisma generate
+7. اگر دیتابیس تازه است:
+   npx prisma db push
+8. اجرا در توسعه:
+   npm run dev
+9. باز کردن:
+   http://localhost:3000
+
+Login اولیه:
+- اگر دیتابیس هیچ user نداشته باشد، اولین ورود می‌تواند user اولیه بسازد.
+- ایمیل پیشنهادی: admin@instaflow.local
+- رمز پیشنهادی: 123456
+- برای محیط production حتماً بعداً تغییر کند.
+
+============================================================
+8) Deploy روی Railway
+============================================================
+Variables لازم:
+DATABASE_URL=...
+NEXTAUTH_SECRET=...
+META_PAGE_ID=812762118592536
+META_PAGE_ACCESS_TOKEN=EAA...
+INSTAGRAM_ID=17841453193519327
+INSTAGRAM_USERNAME=shanshin.rest
+META_WEBHOOK_VERIFY_TOKEN=shanshin_meta_webhook_2026
+INSTAFLOW_AUTO_REPLY_MODE=live
+INSTAFLOW_ALLOW_LIVE_SEND=true
+ALLOW_DEMO_BOOTSTRAP=false
+
+Build:
+- npm install && npm run build
+
+Start:
+- npm start
+
+اگر دیتابیس تازه است و schema پایه ندارد، یک بار دستی اجرا شود:
+- npm run db:push
+
+اما start نباید db push اجرا کند.
+
+============================================================
+9) تست مرحله‌ای v25
+============================================================
+بعد از deploy موفق:
+
+الف) تست صفحات:
+/dashboard
+/dashboard/inbox
+/dashboard/automation/rules
+/dashboard/automation/rules/new
+/dashboard/assets
+/dashboard/templates
+/dashboard/cards
+/dashboard/comments
+/dashboard/logs
+/connect
+
+ب) تست پیوست:
+1. برو /dashboard/assets
+2. یک لینک PDF یا عکس منو بساز.
+3. ذخیره کن و ببین در لیست نمایش داده می‌شود.
+
+ج) تست قالب:
+1. برو /dashboard/templates
+2. قالب «پاسخ منو» بساز.
+3. ذخیره کن.
+
+د) تست کارت:
+1. برو /dashboard/cards
+2. کارت «اکبرجوجه شانشین» یا «منوی اصلی» بساز.
+3. عکس، توضیح و چند دکمه دستی اضافه کن.
+4. دکمه‌ها نمونه:
+   - مشاهده منو -> https://...
+   - رزرو میز -> https://...
+   - تماس -> tel:...
+
+ه) تست قانون دایرکت:
+1. برو /dashboard/automation/rules/new
+2. قانون بساز:
+   نام: منوی اصلی
+   کلمات: منو, menu, لیست غذا
+   شرط: شامل یا برابر
+   پاسخ: سلام 🌹 منوی شانشین آماده است.
+   کارت: کارت منوی اصلی
+   فعال: بله
+3. ذخیره کن.
+4. از اکانت تست به shanshin.rest پیام بده: منو
+5. با باز بودن /dashboard/inbox sync/refresh کن.
+6. پاسخ باید شامل متن + کارت fallback + لینک دکمه‌ها باشد.
+
+و) تست کامنت هوشمند:
+1. برو /dashboard/comments
+2. قانون کامنت بساز:
+   کلمه: منو
+   پاسخ عمومی: منو براتون دایرکت شد 🌹
+   دایرکت: سلام 🌹 منوی شانشین آماده است...
+   کارت: کارت منوی اصلی
+3. فعلاً این بیشتر preview/structure است؛ اجرای واقعی نیاز به دسترسی Meta دارد.
+
+============================================================
+10) محدودیت‌های فعلی و ادامه کار
+============================================================
+- Webhook endpoint درست Verify می‌شود ولی برای دریافت رویداد واقعی بدون باز بودن برنامه، اپ Meta باید Published باشد.
+- Business Verification/App Review هنوز مانع اجرای کامل Webhook عمومی است.
+- فعلاً برای تست، برنامه/Inbox باز می‌ماند.
+- در آینده بعد از App Review، باید polling حذف و Webhook واقعی فعال شود.
+- Upload مستقیم فایل داخل برنامه هنوز کامل نشده؛ فعلاً لینک عمومی ذخیره می‌شود.
+- ارسال Native Card بسته به محدودیت API باید تست شود. fallback متن + لینک همیشه باید باقی بماند.
+
+============================================================
+11) اولویت نسخه بعدی پیشنهادی
+============================================================
+v26_media_upload_native:
+- آپلود واقعی عکس/PDF/ویدیو/صدا داخل برنامه
+- ذخیره فایل در storage مناسب
+- اتصال مستقیم upload به کارت‌ها و قوانین
+- تست ارسال native media/card در Instagram DM
+- بهتر کردن لاگ ارسال و خطاهای Meta
+- آماده‌سازی App Review package: privacy, terms, data deletion, screencast, test user instructions
+
+============================================================
+12) نکات مهم برای Kiro
+============================================================
+- مسیر DM رسمی باید Page endpoint باشد، نه graph.instagram.com conversation.
+- توکن اصلی باید Page Access Token با EAA باشد.
+- قبل از تغییرات بزرگ، build را اجرا کن:
+  npm install
+  npx prisma generate
+  npm run build
+- اگر Railway خطای Data Loss داد، بررسی کن start دوباره prisma db push نشده باشد.
+- جدول‌های instaflow_* با raw SQL ساخته می‌شوند و نباید با db push حذف شوند.
+- روی UI موبایل‌فرست کار شود؛ کاربر بیشتر با موبایل تست می‌کند.
+- appearance فعلاً اولویت دوم است؛ عملکرد اتوماسیون، قوانین، کارت و کامنت مهم‌تر است.

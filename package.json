@@ -1,6 +1,6 @@
 {
   "name": "shanigram",
-  "version": "0.1.0",
+  "version": "0.25.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,7 +11,7 @@
     "db:push": "prisma db push",
     "phase1:check": "npm run db:generate && npm run build",
     "db:deploy": "prisma db push",
-    "railway:build": "npm ci && npm run build"
+    "railway:build": "npm install && npm run build"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",

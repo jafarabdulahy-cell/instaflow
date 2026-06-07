@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, FileText, Home, Image as ImageIcon, Link2, Loader2, MessageCircle, Mic, Plus, Save, ShoppingBag, UsersRound, Video, X, Zap } from "lucide-react";
+import { ArrowRight, FileText, Image as ImageIcon, Loader2, Mic, Plus, Save, ShoppingBag, Video, X, Zap } from "lucide-react";
 
 type Attachment = { type: "image" | "video" | "audio" | "file" | "link"; url: string; label?: string };
 type Rule = { id: string; name: string; triggers: string[]; matchType: "equals" | "contains"; responseText: string; mediaType: "none" | "image" | "video" | "audio" | "file" | "link"; mediaUrl: string; attachments?: Attachment[]; isActive: boolean; sendOnce: boolean };
@@ -105,7 +105,7 @@ export default function NewAutomationRulePage() {
           <label className="block text-[12px] font-black">نام قانون *</label><input value={name} onChange={(e) => setName(e.target.value)} className="h-12 w-full rounded-2xl border border-[#ECE8F6] bg-[#FBFAFF] px-3 text-right text-[13px] font-bold outline-none" />
           <div><label className="block text-[12px] font-black">فعال‌کننده‌ها</label><div className="mt-2 flex flex-wrap gap-2">{triggers.map((item) => <button key={item} onClick={() => removeTrigger(item)} className="inline-flex items-center gap-1 rounded-full bg-[#F2EEFF] px-3 py-1 text-[11px] font-black text-[#5B2BE2]"><X className="h-3 w-3" /> {item}</button>)}</div><div className="mt-2 flex gap-2"><button onClick={addTrigger} className="h-12 rounded-2xl bg-[#5B2BE2] px-4 text-[12px] font-black text-white">افزودن</button><input value={triggerInput} onChange={(e) => setTriggerInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTrigger(); } }} placeholder="کلمه را وارد کنید" className="h-12 min-w-0 flex-1 rounded-2xl border border-[#ECE8F6] bg-white px-3 text-right text-[12px] font-bold outline-none" /></div></div>
           <div><label className="block text-[12px] font-black">نوع شرط</label><select value={matchType} onChange={(e) => setMatchType(e.target.value as "equals" | "contains")} className="mt-2 h-12 w-full rounded-2xl border border-[#ECE8F6] bg-white px-3 text-right text-[12px] font-black outline-none"><option value="equals">برابر با</option><option value="contains">شامل</option></select></div>
-          <div><label className="block text-[12px] font-black">پاسخ متنی *</label><textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} className="mt-2 min-h-[120px] w-full rounded-2xl border border-[#ECE8F6] bg-white p-3 text-right text-[13px] font-bold leading-7 outline-none" /><p className="mt-1 text-left text-[10px] font-bold text-[#8A8498]">{responseText.length}/1800</p></div>
+          <div><label className="block text-[12px] font-black">پاسخ متنی <span className="text-[#8A8498]">(اختیاری اگر کارت یا پیوست داری)</span></label><textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} className="mt-2 min-h-[120px] w-full rounded-2xl border border-[#ECE8F6] bg-white p-3 text-right text-[13px] font-bold leading-7 outline-none" /><p className="mt-1 text-left text-[10px] font-bold text-[#8A8498]">{responseText.length}/1800</p></div>
         </section>
 
         <section className="rounded-[26px] bg-white p-3 text-right shadow-[0_14px_34px_rgba(42,16,90,0.07)] ring-1 ring-[#ECE8F6]">

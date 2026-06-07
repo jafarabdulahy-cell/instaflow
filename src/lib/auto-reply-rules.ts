@@ -285,7 +285,7 @@ export function sanitizeRuleInput(input: CreateManualRuleInput) {
   const cardId = clean(input.cardId);
 
   if (!triggers.length) throw new Error("حداقل یک کلمه کلیدی/فعال‌کننده وارد کنید.");
-  if (!responseText && !mediaUrl && !attachments.length) throw new Error("متن پاسخ یا لینک رسانه/فایل الزامی است.");
+  if (!responseText && !mediaUrl && !attachments.length && !cardId) throw new Error("متن پاسخ، پیوست یا کارت الزامی است.");
 
   return {
     name: name.slice(0, 140),

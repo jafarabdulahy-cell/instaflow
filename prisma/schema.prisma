@@ -13,7 +13,6 @@ model Workspace {
   slug              String             @unique
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-
   users             User[]
   instagramAccounts InstagramAccount[]
   contacts          Contact[]
@@ -25,11 +24,10 @@ model User {
   id           String    @id @default(cuid())
   workspaceId  String
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
   name         String
   email        String    @unique
   passwordHash String
-  role         String    @default("owner") // owner | admin | agent
+  role         String    @default("owner")
   plan         String    @default("starter")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -39,27 +37,23 @@ model InstagramAccount {
   id                String     @id @default(cuid())
   workspaceId       String
   workspace         Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
   instagramId       String
   username          String
   name              String?
   profilePicUrl     String?
   followersCount    Int        @default(0)
   biography         String?
-
   accessToken       String
   tokenExpiresAt    DateTime?
   facebookPageId    String?
   facebookPageName  String?
-  webhookStatus     String     @default("pending") // pending | connected | failed
+  webhookStatus     String     @default("pending")
   isActive          Boolean    @default(true)
   connectedAt       DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
-
   contacts          Contact[]
   conversations     Conversation[]
   webhookEvents     WebhookEvent[]
-
   @@unique([workspaceId, instagramId])
   @@index([workspaceId])
 }
@@ -70,21 +64,18 @@ model Contact {
   workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   instagramAccountId String
   instagramAccount   InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
-
   instagramUserId    String
   username           String?
   name               String?
   profilePicUrl      String?
   phone              String?
-  status             String    @default("lead") // lead | customer | vip | blocked
+  status             String    @default("lead")
   leadScore          Int       @default(0)
   notes              String?
   firstContactAt     DateTime  @default(now())
   lastContactAt      DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
-
   conversations      Conversation[]
-
   @@unique([instagramAccountId, instagramUserId])
   @@index([workspaceId])
 }
@@ -97,20 +88,17 @@ model Conversation {
   instagramAccount   InstagramAccount @relation(fields: [instagramAccountId], references: [id], onDelete: Cascade)
   contactId          String?
   contact            Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
   instagramUserId    String
   username           String?
   displayName        String?
   profilePicUrl      String?
   lastMessage        String?
   unreadCount        Int       @default(0)
-  status             String    @default("open") // open | pending | closed
+  status             String    @default("open")
   isVip              Boolean   @default(false)
   updatedAt          DateTime  @updatedAt
   createdAt          DateTime  @default(now())
-
   messages           Message[]
-
   @@unique([instagramAccountId, instagramUserId])
   @@index([workspaceId, updatedAt])
 }
@@ -119,9 +107,8 @@ model Message {
   id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
   externalId     String?
-  direction      String       // inbound | outbound
+  direction      String
   senderId       String?
   text           String?
   mediaUrl       String?
@@ -129,7 +116,6 @@ model Message {
   isRead         Boolean      @default(false)
   rawPayload     Json?
   createdAt      DateTime     @default(now())
-
   @@index([conversationId, createdAt])
 }
 
@@ -139,13 +125,11 @@ model WebhookEvent {
   workspace          Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   instagramAccountId String?
   instagramAccount   InstagramAccount? @relation(fields: [instagramAccountId], references: [id], onDelete: SetNull)
-
   eventType          String
   senderId           String?
   payload            Json
   processed          Boolean   @default(false)
   processedAt        DateTime?
   createdAt          DateTime  @default(now())
-
   @@index([instagramAccountId, createdAt])
 }
