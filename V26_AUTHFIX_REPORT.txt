@@ -1,0 +1,15 @@
+V26 Railway auth build fix
+
+Problem:
+Railway build failed because existing register route imported createSessionToken and setSessionCookie from src/lib/auth.ts, but the v26 auth helper only exported signSession/authCookieName/verifySessionToken.
+
+Fix:
+- Added createSessionToken(session) as a safe alias to signSession(session).
+- Added setSessionCookie(response, token) helper with the same secure cookie settings used by login.
+- No Prisma/schema/database/API logic changes beyond auth helper compatibility.
+
+Files changed:
+- src/lib/auth.ts
+
+Upload instruction:
+Copy/replace only src/lib/auth.ts in the GitHub repository, commit, and push.

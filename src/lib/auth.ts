@@ -1,9 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 const COOKIE_NAME = "instaflow_session";
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DEMO_EMAIL = "admin@instaflow.local";
 const DEMO_PASSWORD = "123456";
 
@@ -25,6 +26,22 @@ export function authCookieName() {
 
 export function signSession(session: ApiSession) {
   return jwt.sign(session, secret(), { expiresIn: "30d" });
+}
+
+// Backward-compatible alias for older auth/register routes that still import this name.
+export function createSessionToken(session: ApiSession) {
+  return signSession(session);
+}
+
+// Shared cookie writer used by register/login style routes.
+export function setSessionCookie(res: NextResponse, token: string) {
+  res.cookies.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  });
 }
 
 export function verifySessionToken(token?: string | null): ApiSession | null {
