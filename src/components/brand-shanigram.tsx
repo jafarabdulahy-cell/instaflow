@@ -10,3 +10,25 @@ export function ShanigramMark({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+
+export function ShanigramLogo({
+  className = "",
+  markClassName = "h-10 w-10",
+  compact = false,
+}: {
+  className?: string;
+  markClassName?: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`.trim()}>
+      <ShanigramMark className={markClassName} />
+      {!compact && (
+        <div className="text-right leading-tight">
+          <div className="text-[18px] font-black text-[#17112A]">Shanigram</div>
+          <div className="text-[11px] font-bold text-[#7C748E]">Instagram DM Automation</div>
+        </div>
+      )}
+    </div>
+  );
+}
