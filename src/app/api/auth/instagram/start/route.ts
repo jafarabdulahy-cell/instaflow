@@ -57,7 +57,6 @@ function buildMetaOAuthUrl(state: string): string {
       "instagram_manage_messages",
       "instagram_manage_comments",
       "pages_show_list",
-      "pages_manage_metadata",
       "pages_read_engagement",
     ].join(","),
     response_type: "code",

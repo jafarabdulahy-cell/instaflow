@@ -57,7 +57,7 @@ function handleConnect() {
   const authUrl = buildMetaOAuthUrl({
     app_id: META_APP_ID,
     redirect_uri: `${BASE_URL}/api/auth/instagram/callback`,
-    scope: 'instagram_basic,instagram_manage_messages,pages_show_list,pages_manage_metadata',
+    scope: 'instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement',
     state: state,
     response_type: 'code',
   });
@@ -86,8 +86,8 @@ function handleConnect() {
 - `instagram_basic`: اطلاعات پایه پروفایل
 - `instagram_manage_messages`: خواندن و ارسال پیام دایرکت
 - `pages_show_list`: لیست صفحات کاربر
-- `pages_manage_metadata`: مدیریت اطلاعات صفحه
-- `instagram_manage_comments` (اختیاری): مدیریت کامنت‌ها
+- `pages_read_engagement`: خواندن تعاملات صفحه
+- `instagram_manage_comments`: مدیریت کامنت‌ها
 
 ---
 
