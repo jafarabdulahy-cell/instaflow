@@ -3,6 +3,7 @@ import { requireApiSession } from "@/lib/auth";
 import { buildAutoReplyDecisionForWorkspace } from "@/lib/auto-reply";
 import { clean, fetchFacebookJson, maskToken, sanitizeInstagramPayload } from "@/lib/instagram-api";
 import { resolveInstagramConnection } from "@/lib/instagram-connection";
+import { isMockModeEnabled, MOCK_CONVERSATIONS, MOCK_PROFILE } from "@/lib/mock-instagram-data";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -94,6 +95,37 @@ async function tryResolvePageAccessTokenFromUserToken(input: {
 export async function GET(req: NextRequest) {
   const session = await requireApiSession(req);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // ⭐ Mock Mode: بازگشت گفتگوهای Mock با Auto Reply
+  if (isMockModeEnabled()) {
+    const conversations = [];
+    for (const conv of MOCK_CONVERSATIONS.slice(0, 5)) {
+      const messagesWithAutoReply = [];
+      for (const msg of conv.messages || []) {
+        messagesWithAutoReply.push({
+          ...msg,
+          autoReply: await buildAutoReplyDecisionForWorkspace({
+            workspaceId: session.workspaceId,
+            text: msg.message || "",
+            source: "instagram_dm",
+          }),
+        });
+      }
+      conversations.push({
+        ...conv,
+        messages: messagesWithAutoReply,
+      });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      mode: "mock",
+      mockMode: true,
+      profile: MOCK_PROFILE,
+      conversations,
+      emptyReason: "",
+    });
+  }
 
   const connection = await resolveInstagramConnection(session.workspaceId);
   const pageId = clean(connection?.pageId);

@@ -4,6 +4,7 @@ import { captureAutoLead } from "@/lib/auto-lead";
 import { buildAutoReplyDecisionForWorkspace, getAutoReplyMode, isLiveAutoReplyAllowed } from "@/lib/auto-reply";
 import { clean, fetchConversations, fetchConversationMessages, fetchFacebookJson, fetchInstagramJson, sendInstagramTextMessage } from "@/lib/instagram-api";
 import { ensureInstagramAccountFromConnection, resolveInstagramConnection } from "@/lib/instagram-connection";
+import { isMockModeEnabled, MOCK_CONVERSATIONS, MOCK_PROFILE } from "@/lib/mock-instagram-data";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -89,6 +90,72 @@ async function fetchMessages(conversationId: string, accessToken: string, graph:
 export async function POST(req: NextRequest) {
   const session = await requireApiSession(req);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // ⭐ Mock Mode: Sync گفتگوهای Mock به دیتابیس
+  if (isMockModeEnabled()) {
+    const connection = await resolveInstagramConnection(session.workspaceId);
+    if (!connection) {
+      return NextResponse.json({ 
+        error: "اتصال Mock یافت نشد. لطفاً Environment Variables را بررسی کنید." 
+      }, { status: 400 });
+    }
+
+    const account = await ensureInstagramAccountFromConnection(session.workspaceId, connection);
+    
+    let imported = 0;
+    let duplicates = 0;
+    let checkedConversations = 0;
+    let checkedMessages = 0;
+
+    // فقط اولین گفتگو را sync می‌کنیم
+    for (const conversation of MOCK_CONVERSATIONS.slice(0, 1)) {
+      checkedConversations += 1;
+      const messages = conversation.messages || [];
+      checkedMessages += messages.length;
+
+      for (const message of messages) {
+        const fromId = message.from.id;
+        const fromUsername = message.from.username;
+        const fromName = message.from.name;
+        const text = message.message || "پیام تستی";
+
+        // پیام‌های خروجی خود پیج را skip می‌کنیم
+        if (fromId === MOCK_PROFILE.id || fromUsername === MOCK_PROFILE.username) continue;
+
+        const result = await captureAutoLead({
+          account,
+          instagramUserId: fromId,
+          username: fromUsername,
+          displayName: fromName,
+          text,
+          source: "instagram_dm",
+          externalId: message.id,
+          rawPayload: { conversation, message },
+        });
+
+        if (result?.duplicated) {
+          duplicates += 1;
+        } else if (result) {
+          imported += 1;
+        }
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      mockMode: true,
+      checkedConversations,
+      checkedMessages,
+      imported,
+      duplicates,
+      sentReplies: 0,
+      skippedReplies: 0,
+      autoReplyMode: "preview",
+      liveSendAllowed: false,
+      empty: false,
+      message: `Sync Mock موفق: ${checkedConversations} گفتگو بررسی شد، ${imported} لید جدید ایجاد شد.`,
+    });
+  }
 
   const connection = await resolveInstagramConnection(session.workspaceId);
   if (!connection?.instagramId || !connection?.accessToken) {

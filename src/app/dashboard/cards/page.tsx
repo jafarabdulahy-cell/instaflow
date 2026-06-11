@@ -113,11 +113,11 @@ export default function DirectCardsPage() {
         </section>
 
         {loading && <section className="rounded-[24px] bg-white p-4 text-center text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></section>}
-        <section className="space-y-3">
+        <section className="grid grid-cols-2 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2">
           {cards.map((card) => (
             <article key={card.id} className="overflow-hidden rounded-[24px] bg-white shadow-[0_12px_28px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6]">
               {card.imageUrl ? <img src={card.imageUrl} alt={card.title} className="h-32 w-full object-cover" /> : null}
-              <div className="p-3 text-right"><div className="flex items-start justify-between gap-3"><button onClick={() => remove(card.id)} className="grid h-10 w-10 place-items-center rounded-2xl bg-red-50 text-red-700"><Trash2 className="h-4 w-4" /></button><div className="min-w-0 flex-1"><p className="text-[15px] font-black text-[#24123F]">{card.title}</p><p className="mt-1 text-[11px] font-bold text-[#8A8498]">{card.name}</p></div><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]"><ShoppingBag className="h-5 w-5" /></div></div><p className="mt-3 rounded-2xl bg-[#FBFAFF] p-3 text-[11px] font-bold leading-6 text-[#6D6780] ring-1 ring-[#ECE8F6]">{card.description || "بدون توضیح"}</p><div className="mt-2 flex flex-wrap gap-2">{card.buttons.map((button, index) => <span key={index} className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2]">{button.label}</span>)}</div></div>
+              <div className="p-3 text-right"><div className="flex items-start justify-between gap-3"><button onClick={() => remove(card.id)} className="grid h-10 w-10 place-items-center rounded-2xl bg-red-50 text-red-700"><Trash2 className="h-4 w-4" /></button><div className="min-w-0 flex-1"><p className="text-[15px] font-black text-[#24123F]">{card.title}</p><p className="mt-1 text-[11px] font-bold text-[#8A8498]">{card.name}</p></div><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]"><ShoppingBag className="h-5 w-5" /></div></div><p className="mt-3 line-clamp-2 rounded-2xl bg-[#FBFAFF] p-3 text-[11px] font-bold leading-6 text-[#6D6780] ring-1 ring-[#ECE8F6]">{card.description || "بدون توضیح"}</p><div className="mt-2 flex flex-wrap gap-2">{card.buttons.map((button, index) => <span key={index} className="rounded-full bg-[#F2EEFF] px-3 py-1 text-[10px] font-black text-[#5B2BE2]">{button.label}</span>)}</div></div>
             </article>
           ))}
         </section>

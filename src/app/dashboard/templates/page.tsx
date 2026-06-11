@@ -81,11 +81,11 @@ export default function TemplatesPage() {
         </section>
 
         {loading && <section className="rounded-[24px] bg-white p-4 text-center text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></section>}
-        <section className="space-y-3">
+        <section className="grid grid-cols-2 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2">
           {templates.map((item) => (
             <article key={item.id} className="rounded-[24px] bg-white p-3 text-right shadow-[0_12px_28px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6]">
               <div className="flex items-start justify-between gap-3"><div className="flex gap-2"><button onClick={() => copy(item.body)} className="grid h-10 w-10 place-items-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]"><Copy className="h-4 w-4" /></button><button onClick={() => remove(item.id)} className="grid h-10 w-10 place-items-center rounded-2xl bg-red-50 text-red-700"><Trash2 className="h-4 w-4" /></button></div><div className="min-w-0 flex-1"><p className="text-[15px] font-black text-[#24123F]">{item.title}</p><p className="mt-1 text-[11px] font-bold text-[#8A8498]">{item.category}</p></div><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F2EEFF] text-[#5B2BE2]"><FileText className="h-5 w-5" /></div></div>
-              <p className="mt-3 whitespace-pre-line rounded-2xl bg-[#FBFAFF] p-3 text-[11px] font-bold leading-6 text-[#6D6780] ring-1 ring-[#ECE8F6]">{item.body || item.mediaUrl}</p>
+              <p className="mt-3 line-clamp-3 whitespace-pre-line rounded-2xl bg-[#FBFAFF] p-3 text-[11px] font-bold leading-6 text-[#6D6780] ring-1 ring-[#ECE8F6]">{item.body || item.mediaUrl}</p>
             </article>
           ))}
         </section>

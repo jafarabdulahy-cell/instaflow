@@ -87,7 +87,7 @@ export default function AssetsPage() {
         </section>
 
         {loading && <section className="rounded-[24px] bg-white p-4 text-center text-[#5B2BE2] ring-1 ring-[#ECE8F6]"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></section>}
-        <section className="space-y-3">
+        <section className="grid grid-cols-2 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2">
           {assets.map((asset) => (
             <article key={asset.id} className="rounded-[24px] bg-white p-3 shadow-[0_12px_28px_rgba(42,16,90,0.06)] ring-1 ring-[#ECE8F6]">
               <div className="flex items-start justify-between gap-3">

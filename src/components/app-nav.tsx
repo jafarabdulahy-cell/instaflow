@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Home, Link2, MessageCircle, UsersRound } from "lucide-react";
+import { Home, Link2, MessageCircle, Sparkles, UsersRound } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "خانه", icon: Home, exact: true },
-  { href: "/dashboard/inbox", label: "اینباکس", icon: MessageCircle, exact: false },
-  { href: "/dashboard/automation/rules", label: "قوانین", icon: Bot, exact: false },
+  { href: "/dashboard/direct", label: "دایرکت", icon: MessageCircle, exact: false },
+  { href: "/dashboard/content", label: "محتوا", icon: Sparkles, exact: false },
   { href: "/dashboard/leads", label: "لیدها", icon: UsersRound, exact: false },
-  { href: "/connect", label: "اتصال", icon: Link2, exact: false },
+  { href: "/dashboard/settings", label: "تنظیمات", icon: Link2, exact: false },
 ] as const;
 
 export function AppNav() {

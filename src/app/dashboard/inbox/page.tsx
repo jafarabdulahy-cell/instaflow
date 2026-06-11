@@ -127,7 +127,20 @@ export default function InboxPage() {
     }
     try {
       const res = await fetch("/api/instagram/inbox-test", { cache: "no-store" });
-      const json = await res.json();
+      
+      // بررسی اینکه response body خالی نباشد
+      const text = await res.text();
+      if (!text || text.trim() === "") {
+        throw new Error("سرور پاسخ خالی برگرداند. لطفاً لاگ‌های سرور را بررسی کنید.");
+      }
+      
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (parseError) {
+        throw new Error(`پاسخ سرور JSON معتبر نیست: ${text.substring(0, 100)}`);
+      }
+      
       if (res.status === 401) {
         location.assign("/auth/login");
         return;

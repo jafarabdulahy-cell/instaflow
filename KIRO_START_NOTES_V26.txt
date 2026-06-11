@@ -1,0 +1,12 @@
+Instaflow v26 Kiro start package
+
+Included safe build-start fixes:
+- Auth exports: createSessionToken and setSessionCookie in src/lib/auth.ts
+- Brand export: ShanigramLogo in src/components/brand-shanigram.tsx
+- No .env.local included
+
+Next recommended Kiro task:
+1) npm install
+2) npm run build
+3) Fix only the first build error with the smallest safe change
+4) Do not modify Prisma schema, package.json, .env files, Meta send/webhook logic unless explicitly approved

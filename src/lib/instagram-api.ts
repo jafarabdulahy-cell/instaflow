@@ -1,3 +1,11 @@
+import {
+  isMockModeEnabled,
+  MOCK_PROFILE,
+  MOCK_PAGE_PROFILE,
+  MOCK_CONVERSATIONS,
+  createMockApiTest,
+} from "./mock-instagram-data";
+
 const DEFAULT_VERSION = process.env.META_GRAPH_VERSION || "v25.0";
 const INSTAGRAM_GRAPH_BASE = process.env.INSTAGRAM_GRAPH_BASE || "https://graph.instagram.com";
 const FACEBOOK_GRAPH_BASE = process.env.META_GRAPH_BASE || "https://graph.facebook.com";
@@ -190,6 +198,11 @@ export async function verifyInstagramProfile(input: InstagramAccountInput) {
     throw new Error("Instagram ID و Access Token الزامی است.");
   }
 
+  // Mock Mode: بازگشت پروفایل تستی
+  if (isMockModeEnabled()) {
+    return MOCK_PROFILE;
+  }
+
   const response = await fetchInstagramJson<InstagramProfile | { error?: unknown }>(
     `${instagramId}?fields=id,username,name,profile_picture_url`,
     accessToken
@@ -215,6 +228,11 @@ export async function verifyPageProfile(input: InstagramAccountInput) {
     throw new Error("Page ID و Page Access Token الزامی است.");
   }
 
+  // Mock Mode: بازگشت Page Profile تستی
+  if (isMockModeEnabled()) {
+    return MOCK_PAGE_PROFILE;
+  }
+
   const response = await fetchFacebookJson<PageProfile | { error?: unknown }>(
     `${pageId}?fields=id,name,instagram_business_account`,
     token
@@ -228,6 +246,15 @@ export async function verifyPageProfile(input: InstagramAccountInput) {
 }
 
 export async function fetchConversationMessages(conversationId: string, accessToken: string, options: FetchOptions = {}) {
+  // Mock Mode: بازگشت پیام‌های Mock
+  if (isMockModeEnabled()) {
+    const conv = MOCK_CONVERSATIONS.find(c => c.id === conversationId);
+    return {
+      data: conv?.messages || [],
+      paging: {},
+    };
+  }
+
   const graph = options.graph || "facebook";
   const withAttachments = await fetchGraphJson<{ data?: InstagramConversationMessage[]; paging?: Record<string, unknown>; error?: unknown }>(
     `${conversationId}/messages?fields=id,message,from,to,created_time,attachments&limit=10`,
@@ -253,6 +280,14 @@ export async function fetchConversationMessages(conversationId: string, accessTo
 }
 
 export async function fetchConversations(input: InstagramAccountInput, path?: string) {
+  // Mock Mode: بازگشت گفتگوهای تستی
+  if (isMockModeEnabled()) {
+    return {
+      data: MOCK_CONVERSATIONS,
+      paging: {},
+    };
+  }
+
   const pageMode = isPageMode(input);
   const token = pageMode ? pageToken(input) : clean(input.accessToken);
   const endpoint = path || (pageMode
@@ -300,6 +335,79 @@ export async function runInstagramDiagnostics(input: InstagramAccountInput) {
       conversations: [],
       tests: [{ key: "required", title: "اطلاعات اتصال", endpoint: "local", ok: false, message: "Instagram ID و Token را وارد کنید." }],
       emptyReason: "اطلاعات اتصال کامل نیست.",
+    };
+  }
+
+  // ⭐ Mock Mode: بازگشت نتیجه تستی کامل
+  if (isMockModeEnabled()) {
+    const pageMode = Boolean(pageId && pageAccessToken);
+    
+    if (pageMode) {
+      tests.push(
+        createMockApiTest({
+          key: "page_profile",
+          title: "تست Page و اتصال Instagram Business",
+          endpoint: `${pageId}?fields=id,name,instagram_business_account`,
+          count: 1,
+          message: "Page Token معتبر است (Mock Mode).",
+        })
+      );
+      tests.push(
+        createMockApiTest({
+          key: "page_conversations_probe",
+          title: "تست سبک آخرین گفتگو از Page Token",
+          endpoint: `${pageId}/conversations?platform=instagram&limit=1`,
+          count: MOCK_CONVERSATIONS.length,
+          message: `${MOCK_CONVERSATIONS.length} گفتگو تستی دریافت شد.`,
+        })
+      );
+
+      return {
+        ok: true,
+        mode: "page_token",
+        profile: MOCK_PROFILE,
+        pageProfile: MOCK_PAGE_PROFILE,
+        pageId,
+        configuredInstagramId: instagramId,
+        resolvedInstagramId: MOCK_PROFILE.id,
+        idMismatch: false,
+        conversations: MOCK_CONVERSATIONS,
+        tests,
+        emptyReason: "",
+        mockMode: true,
+      };
+    }
+
+    tests.push(
+      createMockApiTest({
+        key: "profile",
+        title: "تست شناسایی اکانت",
+        endpoint: `${instagramId}?fields=id,username,name`,
+        count: 1,
+        message: "اکانت تستی شناسایی شد (Mock Mode).",
+      })
+    );
+    tests.push(
+      createMockApiTest({
+        key: "conversations_basic",
+        title: "خواندن گفتگوها ساده",
+        endpoint: `${instagramId}/conversations`,
+        count: MOCK_CONVERSATIONS.length,
+        message: `${MOCK_CONVERSATIONS.length} گفتگو تستی دریافت شد.`,
+      })
+    );
+
+    return {
+      ok: true,
+      mode: "instagram_login",
+      profile: MOCK_PROFILE,
+      configuredInstagramId: instagramId,
+      resolvedInstagramId: MOCK_PROFILE.id,
+      idMismatch: false,
+      conversations: MOCK_CONVERSATIONS,
+      tests,
+      emptyReason: "",
+      mockMode: true,
     };
   }
 

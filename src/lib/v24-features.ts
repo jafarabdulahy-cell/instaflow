@@ -87,19 +87,28 @@ function rowToAsset(row: RawAssetRow): MediaAsset {
 }
 
 async function ensureAssetsTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS instaflow_media_assets (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      asset_type TEXT NOT NULL DEFAULT 'link',
-      url TEXT NOT NULL,
-      description TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_media_assets_workspace_idx ON instaflow_media_assets(workspace_id, created_at)`);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS instaflow_media_assets (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        asset_type TEXT NOT NULL DEFAULT 'link',
+        url TEXT NOT NULL,
+        description TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_media_assets_workspace_idx ON instaflow_media_assets(workspace_id, created_at)`);
+  } catch (e) {
+    // ایندکس از قبل وجود دارد
+  }
 }
 
 export async function listMediaAssets(workspaceId: string) {
@@ -213,22 +222,31 @@ function rowToDirectCard(row: RawDirectCardRow): DirectCard {
 }
 
 async function ensureDirectCardsTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS instaflow_direct_cards (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT,
-      image_url TEXT,
-      price TEXT,
-      buttons TEXT NOT NULL DEFAULT '[]',
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_direct_cards_workspace_idx ON instaflow_direct_cards(workspace_id, is_active, created_at)`);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS instaflow_direct_cards (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        image_url TEXT,
+        price TEXT,
+        buttons TEXT NOT NULL DEFAULT '[]',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_direct_cards_workspace_idx ON instaflow_direct_cards(workspace_id, is_active, created_at)`);
+  } catch (e) {
+    // ایندکس از قبل وجود دارد
+  }
 }
 
 export async function listDirectCards(workspaceId: string, options: { activeOnly?: boolean } = {}) {
@@ -273,7 +291,7 @@ export async function createDirectCard(workspaceId: string, input: Record<string
     imageUrl.slice(0, 900) || null,
     price.slice(0, 80) || null,
     JSON.stringify(buttons),
-    input.isActive !== false
+    input.isActive !== false ? 1 : 0
   );
   return getDirectCard(workspace, id);
 }
@@ -329,20 +347,29 @@ type RawTemplateRow = {
 };
 
 async function ensureTemplatesTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS instaflow_reply_templates (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      category TEXT,
-      body TEXT NOT NULL DEFAULT '',
-      media_type TEXT NOT NULL DEFAULT 'none',
-      media_url TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_reply_templates_workspace_idx ON instaflow_reply_templates(workspace_id, created_at)`);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS instaflow_reply_templates (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT,
+        body TEXT NOT NULL DEFAULT '',
+        media_type TEXT NOT NULL DEFAULT 'none',
+        media_url TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_reply_templates_workspace_idx ON instaflow_reply_templates(workspace_id, created_at)`);
+  } catch (e) {
+    // ایندکس از قبل وجود دارد
+  }
 }
 
 function rowToTemplate(row: RawTemplateRow): ReplyTemplate {
@@ -432,23 +459,37 @@ type RawCommentRuleRow = {
 };
 
 async function ensureCommentRulesTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS instaflow_comment_rules (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      triggers TEXT NOT NULL DEFAULT '[]',
-      match_type TEXT NOT NULL DEFAULT 'contains',
-      public_reply TEXT,
-      dm_reply TEXT,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      send_dm BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_comment_rules ADD COLUMN IF NOT EXISTS card_id TEXT`);
-  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_comment_rules_workspace_idx ON instaflow_comment_rules(workspace_id, is_active)`);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS instaflow_comment_rules (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        triggers TEXT NOT NULL DEFAULT '[]',
+        match_type TEXT NOT NULL DEFAULT 'contains',
+        public_reply TEXT,
+        dm_reply TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        send_dm INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_comment_rules ADD COLUMN card_id TEXT`);
+  } catch (e) {
+    // ستون از قبل وجود دارد
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_comment_rules_workspace_idx ON instaflow_comment_rules(workspace_id, is_active)`);
+  } catch (e) {
+    // ایندکس از قبل وجود دارد
+  }
 }
 
 function rowToCommentRule(row: RawCommentRuleRow): CommentAutomationRule {
@@ -499,8 +540,8 @@ export async function createCommentAutomationRule(workspaceId: string, input: Re
     toMatchType(input.matchType),
     publicReply.slice(0, 700),
     dmReply.slice(0, 1800),
-    input.isActive !== false,
-    input.sendDm !== false,
+    input.isActive !== false ? 1 : 0,
+    input.sendDm !== false ? 1 : 0,
     cardId || null
   );
   return (await listCommentAutomationRules(workspace)).find((item) => item.id === id) || null;

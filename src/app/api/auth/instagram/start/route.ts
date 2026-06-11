@@ -1,37 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
+import { generateOAuthState } from "@/lib/encryption";
 
-const DEFAULT_SCOPES = [
-  "instagram_basic",
-  "instagram_manage_messages",
-  "instagram_manage_comments",
-  "pages_show_list",
-  "pages_read_engagement",
-  "pages_manage_metadata",
-].join(",");
+const META_APP_ID = process.env.META_APP_ID || "";
+const META_REDIRECT_URI = process.env.META_REDIRECT_URI || "";
 
+/**
+ * شروع OAuth Flow برای اتصال اینستاگرام
+ */
 export async function GET(req: NextRequest) {
   const session = await requireApiSession(req);
-  if (!session) return NextResponse.redirect(new URL("/auth/login?next=/connect", req.url));
-
-  const appId = process.env.META_APP_ID;
-  const appUrl = process.env.NEXTAUTH_URL || new URL(req.url).origin;
-  const redirectUri = `${appUrl}/api/auth/instagram/callback`;
-
-  if (!appId) {
-    return NextResponse.redirect(new URL("/connect?error=missing_meta_app_id", req.url));
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const state = Buffer.from(
-    JSON.stringify({ workspaceId: session.workspaceId, userId: session.userId, ts: Date.now() })
-  ).toString("base64url");
+  // بررسی تنظیمات
+  if (!META_APP_ID || !META_REDIRECT_URI) {
+    return NextResponse.json(
+      { 
+        error: "OAuth configuration not set", 
+        hint: "META_APP_ID and META_REDIRECT_URI must be configured" 
+      },
+      { status: 500 }
+    );
+  }
 
-  const authUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
-  authUrl.searchParams.set("client_id", appId);
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", process.env.META_OAUTH_SCOPES || DEFAULT_SCOPES);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("state", state);
+  // تولید state برای CSRF protection
+  const state = generateOAuthState();
 
-  return NextResponse.redirect(authUrl);
+  // ذخیره state در session/cookie برای بررسی در callback
+  const response = NextResponse.json({
+    ok: true,
+    authUrl: buildMetaOAuthUrl(state),
+    state,
+  });
+
+  // ذخیره state در cookie
+  response.cookies.set("oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600, // 10 دقیقه
+    path: "/",
+  });
+
+  return response;
+}
+
+function buildMetaOAuthUrl(state: string): string {
+  const params = new URLSearchParams({
+    client_id: META_APP_ID,
+    redirect_uri: META_REDIRECT_URI,
+    state,
+    scope: [
+      "instagram_basic",
+      "instagram_manage_messages",
+      "instagram_manage_comments",
+      "pages_show_list",
+      "pages_manage_metadata",
+      "pages_read_engagement",
+    ].join(","),
+    response_type: "code",
+    display: "popup",
+  });
+
+  return `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
 }

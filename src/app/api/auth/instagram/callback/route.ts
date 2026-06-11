@@ -1,116 +1,165 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 const META_APP_ID = process.env.META_APP_ID || "";
 const META_APP_SECRET = process.env.META_APP_SECRET || "";
+const META_REDIRECT_URI = process.env.META_REDIRECT_URI || "";
 
+/**
+ * Callback بعد از OAuth - دریافت code و تبدیل به Access Token
+ */
 export async function GET(req: NextRequest) {
   const session = await requireApiSession(req);
-  if (!session) return NextResponse.redirect(new URL("/auth/login?next=/connect", req.url));
+  if (!session) {
+    return NextResponse.redirect(new URL("/auth/login", req.url));
+  }
 
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
+  const state = searchParams.get("state");
   const error = searchParams.get("error");
+  const errorReason = searchParams.get("error_reason");
 
-  if (error) return NextResponse.redirect(new URL("/connect?error=access_denied", req.url));
-  if (!code) return NextResponse.redirect(new URL("/connect?error=no_code", req.url));
+  // بررسی خطاها
+  if (error) {
+    const errorMessage = getErrorMessage(error, errorReason);
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard/settings/connection?error=${encodeURIComponent(errorMessage)}`,
+        req.url
+      )
+    );
+  }
+
+  // بررسی code و state
+  if (!code || !state) {
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard/settings/connection?error=${encodeURIComponent("پارامترهای اتصال معتبر نیست")}`,
+        req.url
+      )
+    );
+  }
+
+  // بررسی state برای CSRF protection
+  const savedState = req.cookies.get("oauth_state")?.value;
+  if (!savedState || savedState !== state) {
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard/settings/connection?error=${encodeURIComponent("خطای امنیتی در اتصال")}`,
+        req.url
+      )
+    );
+  }
 
   try {
-    const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/instagram/callback`;
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+    // تبدیل code به Access Token
+    const tokenResponse = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token?${new URLSearchParams({
+        client_id: META_APP_ID,
+        client_secret: META_APP_SECRET,
+        redirect_uri: META_REDIRECT_URI,
+        code,
+      })}`
     );
-    const tokenData = await tokenRes.json();
-    if (tokenData.error || !tokenData.access_token) {
-      return NextResponse.redirect(new URL("/connect?error=token_exchange", req.url));
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || "دریافت Access Token ناموفق بود");
     }
 
-    const longRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&fb_exchange_token=${tokenData.access_token}`
+    const { access_token } = await tokenResponse.json();
+
+    if (!access_token) {
+      throw new Error("Access Token دریافت نشد");
+    }
+
+    // دریافت لیست صفحات کاربر
+    const pagesResponse = await fetch(
+      `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${access_token}`
     );
-    const longData = await longRes.json();
-    const longToken = longData.access_token || tokenData.access_token;
 
-    const pagesRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${longToken}`);
-    const pagesData = await pagesRes.json();
-    if (!pagesData.data?.length) return NextResponse.redirect(new URL("/connect?error=no_pages", req.url));
-
-    let instagramAccount: Record<string, string | number | null> | null = null;
-    let linkedPage: Record<string, string> | null = null;
-
-    for (const page of pagesData.data) {
-      const igRes = await fetch(
-        `https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
-      );
-      const igData = await igRes.json();
-      if (!igData.instagram_business_account) continue;
-
-      const igId = igData.instagram_business_account.id;
-      const profileRes = await fetch(
-        `https://graph.facebook.com/v21.0/${igId}?fields=id,username,name,profile_picture_url,followers_count,biography&access_token=${page.access_token}`
-      );
-      const profile = await profileRes.json();
-      instagramAccount = { ...profile, pageToken: page.access_token };
-      linkedPage = page;
-      break;
+    if (!pagesResponse.ok) {
+      throw new Error("دریافت لیست صفحات ناموفق بود");
     }
 
-    if (!instagramAccount || !linkedPage) {
-      return NextResponse.redirect(new URL("/connect?error=no_instagram", req.url));
+    const { data: pages } = await pagesResponse.json();
+
+    if (!pages || pages.length === 0) {
+      return NextResponse.redirect(
+        new URL(
+          `/dashboard/settings/connection?error=${encodeURIComponent("هیچ صفحه‌ای یافت نشد")}`,
+          req.url
+        )
+      );
     }
 
-    await prisma.instagramAccount.upsert({
-      where: {
-        workspaceId_instagramId: {
-          workspaceId: session.workspaceId,
-          instagramId: String(instagramAccount.id),
-        },
-      },
-      create: {
+    // فیلتر صفحاتی که Instagram Business Account دارند
+    const pagesWithInstagram = pages.filter(
+      (page: any) => page.instagram_business_account
+    );
+
+    if (pagesWithInstagram.length === 0) {
+      return NextResponse.redirect(
+        new URL(
+          `/dashboard/settings/connection?error=${encodeURIComponent("هیچ صفحه‌ای با Instagram Business متصل نیست")}`,
+          req.url
+        )
+      );
+    }
+
+    // ذخیره موقت اطلاعات برای انتخاب پیج
+    await prisma.oAuthSession.create({
+      data: {
         workspaceId: session.workspaceId,
-        instagramId: String(instagramAccount.id),
-        username: String(instagramAccount.username),
-        name: instagramAccount.name ? String(instagramAccount.name) : null,
-        profilePicUrl: instagramAccount.profile_picture_url ? String(instagramAccount.profile_picture_url) : null,
-        followersCount: Number(instagramAccount.followers_count || 0),
-        biography: instagramAccount.biography ? String(instagramAccount.biography) : null,
-        accessToken: String(instagramAccount.pageToken),
-        tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 55),
-        facebookPageId: linkedPage.id,
-        facebookPageName: linkedPage.name,
-        webhookStatus: "connected",
-      },
-      update: {
-        username: String(instagramAccount.username),
-        name: instagramAccount.name ? String(instagramAccount.name) : null,
-        profilePicUrl: instagramAccount.profile_picture_url ? String(instagramAccount.profile_picture_url) : null,
-        followersCount: Number(instagramAccount.followers_count || 0),
-        biography: instagramAccount.biography ? String(instagramAccount.biography) : null,
-        accessToken: String(instagramAccount.pageToken),
-        tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 55),
-        facebookPageId: linkedPage.id,
-        facebookPageName: linkedPage.name,
-        webhookStatus: "connected",
-        isActive: true,
+        userId: session.userId,
+        accessToken: access_token,
+        pages: JSON.stringify(pagesWithInstagram),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 دقیقه
       },
     });
 
-    await registerWebhook(String(instagramAccount.pageToken), linkedPage.id);
-    return NextResponse.redirect(new URL(`/dashboard?connected=${instagramAccount.username}`, req.url));
-  } catch (err) {
-    console.error("OAuth callback error:", err);
-    return NextResponse.redirect(new URL("/connect?error=server_error", req.url));
+    // اگر فقط یک صفحه است، مستقیم اتصال می‌دهیم
+    if (pagesWithInstagram.length === 1) {
+      return NextResponse.redirect(
+        new URL(
+          `/api/auth/instagram/connect?pageId=${pagesWithInstagram[0].id}`,
+          req.url
+        )
+      );
+    }
+
+    // Redirect به صفحه انتخاب پیج
+    return NextResponse.redirect(
+      new URL("/dashboard/settings/connection/select-page", req.url)
+    );
+  } catch (error) {
+    console.error("OAuth callback error:", error);
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard/settings/connection?error=${encodeURIComponent((error as Error).message || "خطا در اتصال به اینستاگرام")}`,
+        req.url
+      )
+    );
   }
 }
 
-async function registerWebhook(pageToken: string, pageId: string) {
-  await fetch(`https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      subscribed_fields: ["messages", "messaging_postbacks", "comments", "mention", "follows"],
-      access_token: pageToken,
-    }),
-  }).catch((err) => console.error("Webhook registration error:", err));
+function getErrorMessage(error: string, reason?: string | null): string {
+  if (error === "access_denied") {
+    if (reason === "user_denied") {
+      return "شما اتصال را لغو کردید";
+    }
+    return "دسترسی رد شد";
+  }
+
+  const errorMessages: Record<string, string> = {
+    server_error: "خطای سرور Meta - لطفاً دوباره تلاش کنید",
+    temporarily_unavailable: "سرویس Meta موقتاً در دسترس نیست",
+    invalid_request: "درخواست نامعتبر است",
+    unauthorized_client: "برنامه مجاز به اتصال نیست",
+    unsupported_response_type: "نوع پاسخ پشتیبانی نمی‌شود",
+  };
+
+  return errorMessages[error] || "خطا در اتصال به اینستاگرام";
 }

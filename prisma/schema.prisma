@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -132,4 +132,16 @@ model WebhookEvent {
   processedAt        DateTime?
   createdAt          DateTime  @default(now())
   @@index([instagramAccountId, createdAt])
+}
+
+model OAuthSession {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  userId       String
+  accessToken  String
+  pages        String    // JSON string
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  @@index([workspaceId, userId])
+  @@index([expiresAt])
 }

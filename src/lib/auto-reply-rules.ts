@@ -254,25 +254,44 @@ export async function buildRuleResponseTextForWorkspace(workspaceId: string, rul
 }
 
 async function ensureRulesTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS instaflow_auto_reply_rules (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      triggers TEXT NOT NULL DEFAULT '[]',
-      match_type TEXT NOT NULL DEFAULT 'equals',
-      response_text TEXT NOT NULL DEFAULT '',
-      media_type TEXT NOT NULL DEFAULT 'none',
-      media_url TEXT,
-      is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      send_once BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]'`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN IF NOT EXISTS card_id TEXT`);
-  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_auto_reply_rules_workspace_idx ON instaflow_auto_reply_rules(workspace_id, is_active)`);
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS instaflow_auto_reply_rules (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        triggers TEXT NOT NULL DEFAULT '[]',
+        match_type TEXT NOT NULL DEFAULT 'equals',
+        response_text TEXT NOT NULL DEFAULT '',
+        media_type TEXT NOT NULL DEFAULT 'none',
+        media_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        send_once INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (e) {
+    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'`);
+  } catch (e) {
+    // ستون از قبل وجود دارد
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE instaflow_auto_reply_rules ADD COLUMN card_id TEXT`);
+  } catch (e) {
+    // ستون از قبل وجود دارد
+  }
+  
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS instaflow_auto_reply_rules_workspace_idx ON instaflow_auto_reply_rules(workspace_id, is_active)`);
+  } catch (e) {
+    // ایندکس از قبل وجود دارد
+  }
 }
 
 export function sanitizeRuleInput(input: CreateManualRuleInput) {
@@ -344,8 +363,8 @@ export async function createManualAutoReplyRule(workspaceId: string, input: Crea
     data.mediaUrl || null,
     JSON.stringify(data.attachments),
     data.cardId || null,
-    data.isActive,
-    data.sendOnce
+    data.isActive ? 1 : 0,
+    data.sendOnce ? 1 : 0
   );
   const created = await getManualAutoReplyRule(id, ruleId);
   if (!created) throw new Error("قانون ذخیره شد اما دوباره خوانده نشد.");
@@ -360,7 +379,7 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
   await ensureRulesTable();
   await prisma.$executeRawUnsafe(
     `UPDATE instaflow_auto_reply_rules
-     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, card_id=$10, is_active=$11, send_once=$12, updated_at=NOW()
+     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, card_id=$10, is_active=$11, send_once=$12, updated_at=CURRENT_TIMESTAMP
      WHERE workspace_id=$1 AND id=$2`,
     id,
     rid,
@@ -372,8 +391,8 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
     data.mediaUrl || null,
     JSON.stringify(data.attachments),
     data.cardId || null,
-    data.isActive,
-    data.sendOnce
+    data.isActive ? 1 : 0,
+    data.sendOnce ? 1 : 0
   );
   return getManualAutoReplyRule(id, rid);
 }
