@@ -265,14 +265,14 @@ async function ensureRulesTable() {
         response_text TEXT NOT NULL DEFAULT '',
         media_type TEXT NOT NULL DEFAULT 'none',
         media_url TEXT,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        send_once INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        send_once BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
   } catch (e) {
-    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+    // جدول از قبل وجود دارد یا سینتکس با PostgreSQL ناسازگار است
   }
   
   try {
@@ -363,8 +363,8 @@ export async function createManualAutoReplyRule(workspaceId: string, input: Crea
     data.mediaUrl || null,
     JSON.stringify(data.attachments),
     data.cardId || null,
-    data.isActive ? 1 : 0,
-    data.sendOnce ? 1 : 0
+    data.isActive,
+    data.sendOnce
   );
   const created = await getManualAutoReplyRule(id, ruleId);
   if (!created) throw new Error("قانون ذخیره شد اما دوباره خوانده نشد.");
@@ -379,7 +379,7 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
   await ensureRulesTable();
   await prisma.$executeRawUnsafe(
     `UPDATE instaflow_auto_reply_rules
-     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, card_id=$10, is_active=$11, send_once=$12, updated_at=CURRENT_TIMESTAMP
+     SET name=$3, triggers=$4, match_type=$5, response_text=$6, media_type=$7, media_url=$8, attachments=$9, card_id=$10, is_active=$11, send_once=$12, updated_at=NOW()
      WHERE workspace_id=$1 AND id=$2`,
     id,
     rid,
@@ -391,8 +391,8 @@ export async function updateManualAutoReplyRule(workspaceId: string, ruleId: str
     data.mediaUrl || null,
     JSON.stringify(data.attachments),
     data.cardId || null,
-    data.isActive ? 1 : 0,
-    data.sendOnce ? 1 : 0
+    data.isActive,
+    data.sendOnce
   );
   return getManualAutoReplyRule(id, rid);
 }

@@ -96,12 +96,12 @@ async function ensureAssetsTable() {
         asset_type TEXT NOT NULL DEFAULT 'link',
         url TEXT NOT NULL,
         description TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
   } catch (e) {
-    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+    // جدول از قبل وجود دارد یا سینتکس با PostgreSQL ناسازگار است
   }
   
   try {
@@ -233,13 +233,13 @@ async function ensureDirectCardsTable() {
         image_url TEXT,
         price TEXT,
         buttons TEXT NOT NULL DEFAULT '[]',
-        is_active INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
   } catch (e) {
-    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+    // جدول از قبل وجود دارد یا سینتکس با PostgreSQL ناسازگار است
   }
   
   try {
@@ -291,7 +291,33 @@ export async function createDirectCard(workspaceId: string, input: Record<string
     imageUrl.slice(0, 900) || null,
     price.slice(0, 80) || null,
     JSON.stringify(buttons),
-    input.isActive !== false ? 1 : 0
+    input.isActive !== false
+  );
+  return getDirectCard(workspace, id);
+}
+
+export async function updateDirectCard(workspaceId: string, cardId: string, input: Record<string, unknown>) {
+  const workspace = clean(workspaceId);
+  const id = clean(cardId);
+  if (!workspace || !id) throw new Error("شناسه کارت نامعتبر است.");
+  const title = clean(input.title) || "کارت";
+  const name = clean(input.name) || title;
+  const description = clean(input.description);
+  const imageUrl = ensureUrl(input.imageUrl || input.image || input.mediaUrl);
+  const price = clean(input.price);
+  const buttons = safeButtons(input.buttons);
+  await ensureDirectCardsTable();
+  await prisma.$executeRawUnsafe(
+    `UPDATE instaflow_direct_cards SET name=$3, title=$4, description=$5, image_url=$6, price=$7, buttons=$8, is_active=$9, updated_at=NOW() WHERE workspace_id=$1 AND id=$2`,
+    workspace,
+    id,
+    name.slice(0, 140),
+    title.slice(0, 160),
+    description.slice(0, 700) || null,
+    imageUrl.slice(0, 900) || null,
+    price.slice(0, 80) || null,
+    JSON.stringify(buttons),
+    input.isActive !== false
   );
   return getDirectCard(workspace, id);
 }
@@ -357,12 +383,12 @@ async function ensureTemplatesTable() {
         body TEXT NOT NULL DEFAULT '',
         media_type TEXT NOT NULL DEFAULT 'none',
         media_url TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
   } catch (e) {
-    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+    // جدول از قبل وجود دارد یا سینتکس با PostgreSQL ناسازگار است
   }
   
   try {
@@ -469,14 +495,14 @@ async function ensureCommentRulesTable() {
         match_type TEXT NOT NULL DEFAULT 'contains',
         public_reply TEXT,
         dm_reply TEXT,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        send_dm INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        send_dm BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
   } catch (e) {
-    // جدول از قبل وجود دارد یا سینتکس با SQLite ناسازگار است
+    // جدول از قبل وجود دارد یا سینتکس با PostgreSQL ناسازگار است
   }
   
   try {
@@ -540,8 +566,35 @@ export async function createCommentAutomationRule(workspaceId: string, input: Re
     toMatchType(input.matchType),
     publicReply.slice(0, 700),
     dmReply.slice(0, 1800),
-    input.isActive !== false ? 1 : 0,
-    input.sendDm !== false ? 1 : 0,
+    input.isActive !== false,
+    input.sendDm !== false,
+    cardId || null
+  );
+  return (await listCommentAutomationRules(workspace)).find((item) => item.id === id) || null;
+}
+
+export async function updateCommentAutomationRule(workspaceId: string, ruleId: string, input: Record<string, unknown>) {
+  const workspace = clean(workspaceId);
+  const id = clean(ruleId);
+  if (!workspace || !id) throw new Error("شناسه قانون نامعتبر است.");
+  const triggers = safeJsonArray(input.triggers).slice(0, 20);
+  const name = clean(input.name) || "قانون کامنت";
+  const publicReply = clean(input.publicReply);
+  const dmReply = clean(input.dmReply);
+  const cardId = clean(input.cardId);
+  if (!triggers.length) throw new Error("حداقل یک کلمه کلیدی کامنت وارد کنید.");
+  await ensureCommentRulesTable();
+  await prisma.$executeRawUnsafe(
+    `UPDATE instaflow_comment_rules SET name=$3, triggers=$4, match_type=$5, public_reply=$6, dm_reply=$7, is_active=$8, send_dm=$9, card_id=$10, updated_at=NOW() WHERE workspace_id=$1 AND id=$2`,
+    workspace,
+    id,
+    name.slice(0, 160),
+    JSON.stringify(triggers),
+    toMatchType(input.matchType),
+    publicReply.slice(0, 700),
+    dmReply.slice(0, 1800),
+    input.isActive !== false,
+    input.sendDm !== false,
     cardId || null
   );
   return (await listCommentAutomationRules(workspace)).find((item) => item.id === id) || null;
