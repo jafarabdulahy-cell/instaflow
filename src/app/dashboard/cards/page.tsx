@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Image as ImageIcon, Loader2, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { AppNav } from "@/components/app-nav";
+import { BackButton } from "@/components/BackButton";
 
 type ButtonItem = { label: string; url: string };
 type DirectCard = { id: string; name: string; title: string; description: string; imageUrl: string; price: string; buttons: ButtonItem[]; isActive: boolean };
@@ -69,7 +70,7 @@ export default function DirectCardsPage() {
       <main className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col gap-3 px-4 pb-28 pt-3">
         <header className="sticky top-0 z-20 -mx-4 bg-[#F8F5FF]/92 px-4 pb-2 pt-2 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/dashboard" className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-[#24123F] shadow-sm ring-1 ring-[#ECE8F6]"><ArrowRight className="h-5 w-5" /></Link>
+            <BackButton />
             <h1 className="text-[22px] font-black">کارت‌ها و ویترین</h1>
             <ShoppingBag className="h-5 w-5 text-[#5B2BE2]" />
           </div>
